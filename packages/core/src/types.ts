@@ -66,6 +66,8 @@ export interface Pool {
   id: string;
   name: string;
   description?: string;
+  /** Set when the pool lives inside one channel's recipe. Unset = shared collection. */
+  ownerChannelId?: string;
   filter: PoolFilter;
   selection: SelectionMode;
   /** For random selection: avoid repeating an item within this much channel time. */
@@ -75,6 +77,8 @@ export interface Pool {
 export interface Clock {
   id: string;
   name: string;
+  /** Set when the clock is one channel's band format. Unset = shared preset. */
+  ownerChannelId?: string;
   program: {
     poolId: string;
     /** Target content length for the slot, e.g. 22 min. */

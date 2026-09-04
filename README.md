@@ -7,7 +7,7 @@ A scheduler and UI that produces playout timelines for [ErsatzTV Next](https://g
 ## What's here
 
 - `packages/core`: the domain model, a deterministic scheduling engine (pools, clocks, cursors, break equalization, network-ID placement, padding to the half hour), and an isolated emitter for Next's playout JSON and XMLTV. Tested with vitest, including validation against Next's 0.0.3 JSON schema.
-- `apps/web`: React + Vite. Day preview with an inspector, a visual clock builder that re-flows the day live, a pool browser with cursors and last-played, and channel cards with duplicate and export.
+- `apps/web`: React + Vite. Three tabs. **Guide** shows every channel for a day side by side like an EPG. **Channels** is where a channel is made on one screen: shows, format, breaks, and schedule on the left, the live day preview and inspector on the right. **Library** holds the media, per-show chapter coverage, shared collections, and import.
 - `docs/`: [domain model](docs/domain-model.md) and [Next schema notes](docs/next-schema.md).
 
 ## Run it
@@ -19,7 +19,9 @@ npm test           # engine tests
 npm run typecheck
 ```
 
-Rules you edit persist in localStorage. "Reset to defaults" in the sidebar clears them.
+Everything you build mirrors to `data/rules.json` and `data/library.json` through the dev server, and to the browser as a fallback. "Reset to defaults" in the sidebar clears it all.
+
+Pools and formats belong to the channel that made them. "Make reusable" on a pool turns it into a shared collection other channels can pick; "Make a private copy" goes the other way. See `docs/design-notes.md` for why.
 
 ## Use your real library's shape
 

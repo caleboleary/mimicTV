@@ -9,17 +9,27 @@ export function useRuleset(): Ruleset {
   return useMemo(() => ({ library, pools, clocks }), [library, pools, clocks]);
 }
 
-/** Simulate a channel through the end of the preview day plus one extra day for "upcoming" views. */
+function simFor(channel: Channel, ruleset: Ruleset, previewDate: string): Simulation | undefined {
+  if (channel.dayparts.length === 0 || channel.dayparts.some((d) => !ruleset.clocks.some((c) => c.id === d.clockId))) return undefined;
+  try {
+    const until = dateStart(previewDate) + 2 * DAY;
+    return simulate(channel, ruleset, Math.max(until, channel.anchorMs + DAY));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Simulate a channel through the preview day plus one day for "upcoming" views. */
 export function useSim(channel: Channel | undefined): Simulation | undefined {
   const ruleset = useRuleset();
   const previewDate = useStore((s) => s.previewDate);
-  return useMemo(() => {
-    if (!channel) return undefined;
-    if (channel.dayparts.length === 0 || channel.dayparts.some((d) => !ruleset.clocks.some((c) => c.id === d.clockId))) return undefined;
-    const until = dateStart(previewDate) + 2 * DAY;
-    if (until <= channel.anchorMs) return simulate(channel, ruleset, channel.anchorMs + DAY);
-    return simulate(channel, ruleset, until);
-  }, [channel, ruleset, previewDate]);
+  return useMemo(() => (channel ? simFor(channel, ruleset, previewDate) : undefined), [channel, ruleset, previewDate]);
+}
+
+export function useSims(channels: Channel[]): Map<string, Simulation | undefined> {
+  const ruleset = useRuleset();
+  const previewDate = useStore((s) => s.previewDate);
+  return useMemo(() => new Map(channels.map((c) => [c.id, simFor(c, ruleset, previewDate)])), [channels, ruleset, previewDate]);
 }
 
 export function useSelectedChannel(): Channel | undefined {
