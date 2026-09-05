@@ -4,7 +4,7 @@ import { poolItems, fmtClock, type Clock, type MediaKind, type Pool, type Schedu
 import { useStore } from '../store/store';
 import { useRuleset, useSim } from '../store/useSim';
 import { exportDay } from '../export';
-import Card from '../components/Card';
+import Card, { Disclosure } from '../components/Card';
 import PoolEditor, { MODES } from '../components/PoolEditor';
 import FormatEditor from '../components/FormatEditor';
 import DayPreview, { DateBar } from '../components/DayPreview';
@@ -23,12 +23,12 @@ const HELP = {
   shows: (
     <>
       <p><b>What plays.</b> Tick the shows this channel should draw from, then choose how to pick from them. "Shuffle shows, episodes in order" is the classic cable feel: a random show each slot, but every show works through its episodes in order.</p>
-      <p>The length range and the "skip extras" box keep stray shorts, specials, and bonus files off the air. Leave no shows ticked to use every show in the library.</p>
+      <p>Leave no shows ticked to use every show in the library. "More options" holds the length range, a season range, and the "skip extras" box that keep stray files off the air.</p>
     </>
   ),
   format: (
     <>
-      <p><b>The shape of each slot.</b> How much content fits, whether two shorts stack into one slot, where breaks fall, and how the slot pads out to the next :30 or :00.</p>
+      <p><b>The shape of each slot.</b> Pick a preset that sounds like your channel: half-hour show, hour drama, movies, back to back with no ads. "Customize" opens every knob underneath if a preset isn't quite right.</p>
       <p>When an episode has no chapter markers you can still cut it every N minutes or at set offsets, so a 44-minute drama gets real mid-rolls instead of one long break at the end.</p>
       <p>"Equalize" spreads the pad time evenly across every break so mid-rolls and the end-of-show break feel the same length. Watch the preview re-flow as you change these.</p>
     </>
@@ -99,8 +99,18 @@ function PoolSlot({ role, poolId, channelId, onPick }: { role: Role; poolId: str
           </>
         )}
       </div>
-      {pool && pool.ownerChannelId === channelId && (
-        <PoolEditor pool={pool} library={library} mode={role === 'program' ? 'program' : 'interstitial'} onChange={(patch) => updatePool(pool.id, patch)} />
+      {pool && pool.ownerChannelId === channelId && role === 'program' && (
+        <PoolEditor pool={pool} library={library} mode="program" onChange={(patch) => updatePool(pool.id, patch)} />
+      )}
+      {pool && pool.ownerChannelId === channelId && role !== 'program' && (
+        <div>
+          <div className="pool-summary">
+            <span>{poolItems(pool, library).length} items · {MODES.find((m) => m.v === pool.selection)?.label.toLowerCase()}{pool.filter.any?.length ? ` · ${pool.filter.any.length} saved search${pool.filter.any.length === 1 ? '' : 'es'}` : ' · everything of this kind'}</span>
+          </div>
+          <Disclosure label="Edit" openLabel="Done editing">
+            <PoolEditor pool={pool} library={library} mode="interstitial" onChange={(patch) => updatePool(pool.id, patch)} />
+          </Disclosure>
+        </div>
       )}
       {pool && !pool.ownerChannelId && (
         <div className="shared-note">

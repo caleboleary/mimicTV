@@ -26,3 +26,16 @@ export default function Card({ title, summary, help, open = true, children }: Pr
     </div>
   );
 }
+
+/** Progressive disclosure: a quiet link-style toggle that reveals the less-used controls. */
+export function Disclosure({ label, openLabel, children, defaultOpen = false }: { label: string; openLabel?: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="disclosure">
+      <button type="button" className="disclosure-btn" onClick={() => setOpen((v) => !v)}>
+        <span className="caret">{open ? '▼' : '▶'}</span>{open ? (openLabel ?? label) : label}
+      </button>
+      {open && <div className="disclosure-body">{children}</div>}
+    </div>
+  );
+}

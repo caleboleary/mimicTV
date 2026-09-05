@@ -69,6 +69,8 @@ export interface FilterTerms {
   minDurationMs?: number;
   /** Leave out items longer than this (ms). Unset = no maximum. */
   maxDurationMs?: number;
+  /** Only episodes whose season falls in this range (inclusive). Items without a season are kept. */
+  seasons?: { min?: number; max?: number };
 }
 
 /**
@@ -89,6 +91,8 @@ export interface Pool {
   selection: SelectionMode;
   /** For random selection: avoid repeating an item within this much channel time. */
   noRepeatMs?: number;
+  /** For shows-shuffled: play this many episodes of a show in a row before switching (default 1). */
+  runLength?: number;
 }
 
 export type BreakFallback =
@@ -127,6 +131,11 @@ export interface Clock {
     maxItems: number;
     /** Ignore break points that would leave a program segment shorter than this (default 3 min). */
     minSegmentMs?: number;
+    /**
+     * When several programs stack into one slot, insert a break after every N of them.
+     * 1 (default) = a break between every program; 0 = never break between programs, only inside them and after the slot.
+     */
+    betweenPrograms?: number;
   };
   networkId: {
     enabled: boolean;
@@ -137,7 +146,7 @@ export interface Clock {
     windowMs: number;
   };
   pad: {
-    /** Pad each block out to the next multiple of this many minutes. */
+    /** Pad each block out to the next multiple of this many minutes. 0 = no padding: the block ends when its content ends and breaks are empty. */
     toMinutes: number;
     poolId: string;
   };
@@ -180,6 +189,8 @@ export interface CursorState {
   asOf: number;
   /** Show that played most recently, so shuffles avoid back-to-back repeats. */
   lastShowId?: string;
+  /** How many consecutive picks the last show has had, for runLength. */
+  runCount?: number;
   /** Internal PRNG state so a simulation can resume exactly where it stopped. */
   rngState?: number;
 }

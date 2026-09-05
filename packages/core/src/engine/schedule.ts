@@ -8,7 +8,7 @@ import { BLACK, Selector } from './select';
 const MIN_MID_BREAK_MS = 20 * SEC;
 /** Runaway guard only; the time budget and the clock's maxItems are the real limits. */
 const MAX_ADS_PER_BREAK = 500;
-const MAX_PROGRAMS_PER_BLOCK = 4;
+const MAX_PROGRAMS_PER_BLOCK = 16;
 const MAX_BLOCKS_PER_RUN = 20000;
 
 interface Ctx {
@@ -186,20 +186,35 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
   }
   if (programs.length === 0) {
     // Empty pool: emit one padded block so the channel keeps moving.
-    const end = start + clock.pad.toMinutes * MIN;
+    const end = start + Math.max(clock.pad.toMinutes, 30) * MIN;
     const brk = fillBreak(ctx, clock, blockId, { index: 0, kind: 'post' }, start, end - start, nextId);
     return { id: blockId, clockId: clock.id, start, end, programs: [], breaks: [brk], entries: brk.entries, contentMs: 0, breakBudgetMs: end - start };
   }
 
-  // 2. Cut programs into segments at their break points.
+  // 2. Cut programs into segments at their break points, and decide which segments a break follows.
+  //    Cuts inside a program always get one. Between stacked programs, only every Nth boundary does.
   const minSeg = clock.breaks.minSegmentMs ?? DEFAULT_MIN_SEGMENT_MS;
   const segments = programs.flatMap((p, i) => segmentsFor(p.item, i, clock.breaks, minSeg));
-  const midCount = segments.length - 1;
-  const breakCount = midCount + 1; // + post-roll
+  const every = clock.breaks.betweenPrograms ?? 1;
+  let sinceBreak = 0;
+  const breakAfter = segments.map((seg, i) => {
+    if (i === segments.length - 1) return true; // post-roll
+    if (seg.partIndex < seg.partCount - 1) return true; // cut inside a program
+    sinceBreak++;
+    if (every > 0 && sinceBreak >= every) { sinceBreak = 0; return true; }
+    return false;
+  });
+  const breakCount = breakAfter.filter(Boolean).length;
+  const midCount = breakCount - 1;
 
-  // 3. Decide the block end: next boundary, bumped if breaks can't fit.
-  let end = ceilToMinutes(start + contentMs + midCount * MIN_MID_BREAK_MS, clock.pad.toMinutes);
-  if (end <= start + contentMs) end += clock.pad.toMinutes * MIN;
+  // 3. Decide the block end: next boundary, bumped if breaks can't fit. No padding = content only.
+  let end: number;
+  if (clock.pad.toMinutes > 0) {
+    end = ceilToMinutes(start + contentMs + midCount * MIN_MID_BREAK_MS, clock.pad.toMinutes);
+    if (end <= start + contentMs) end += clock.pad.toMinutes * MIN;
+  } else {
+    end = start + contentMs;
+  }
   const budget = end - start - contentMs;
 
   // 4. Distribute the budget across breaks.
@@ -219,6 +234,7 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
   const entries: TimelineEntry[] = [];
   const breaks: ScheduledBreak[] = [];
   let t = start;
+  let breakIdx = 0;
   segments.forEach((seg, i) => {
     const pick = programs[seg.programIndex]!;
     const ms = seg.outMs - seg.inMs;
@@ -230,13 +246,15 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
     });
     if (seg.partIndex === 0) ctx.selector.markPlayed(seg.program, t);
     t += ms;
+    if (!breakAfter[i]) return;
     const isLast = i === segments.length - 1;
     const brk = fillBreak(
       ctx, clock, blockId,
-      { index: i, kind: isLast ? 'post' : 'mid' },
-      t, targets[i]!, nextId,
+      { index: breakIdx, kind: isLast ? 'post' : 'mid' },
+      t, targets[breakIdx]!, nextId,
     );
-    breaks.push(brk);
+    breakIdx++;
+    if (brk.entries.length > 0 || brk.targetMs > 0) breaks.push(brk);
     entries.push(...brk.entries);
     t = brk.end;
   });

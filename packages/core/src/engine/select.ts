@@ -63,8 +63,15 @@ export class Selector {
     if (pool.selection === 'shows-shuffled-episodes-in-order') {
       const shows = this.showsOf(pool);
       if (shows.length === 0) return undefined;
+      const run = Math.max(1, pool.runLength ?? 1);
+      const lastShow = shows.find((s) => s.showId === this.cursors.lastShowId);
+      const runCount = this.cursors.runCount ?? 0;
       let candidates = shows.length > 1 ? shows.filter((s) => s.showId !== this.cursors.lastShowId) : shows;
       let reasonPrefix = 'Shuffled to';
+      if (run > 1 && lastShow && runCount < run) {
+        candidates = [lastShow];
+        reasonPrefix = `Run ${runCount + 1}/${run} of`;
+      }
       if (maxMs != null) {
         const fits = (s: { showId: string; episodes: MediaItem[] }) => {
           const idx = this.cursors.showNext[s.showId] ?? 0;
@@ -79,10 +86,11 @@ export class Selector {
           reasonPrefix = 'Stacked a fitting episode from';
         }
       }
-      const show = this.rng.pick(candidates);
+      const show = candidates.length === 1 ? candidates[0]! : this.rng.pick(candidates);
       const idx = this.cursors.showNext[show.showId] ?? 0;
       const ep = show.episodes[idx % show.episodes.length]!;
       this.cursors.showNext[show.showId] = (idx + 1) % show.episodes.length;
+      this.cursors.runCount = show.showId === this.cursors.lastShowId ? runCount + 1 : 1;
       this.cursors.lastShowId = show.showId;
       return { item: ep, reason: `${reasonPrefix} ${show.showId}; cursor was at ${idx + 1}/${show.episodes.length}` };
     }

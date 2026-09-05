@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { poolItems, libraryFolders, termsMatch, fmtDuration, MIN, type FilterTerms, type Library, type MediaKind, type Pool, type SelectionMode } from '@mimictv/core';
 import ShowPicker from './ShowPicker';
+import { Disclosure } from './Card';
 
 const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'filler'];
 export const MODES: { v: SelectionMode; label: string }[] = [
@@ -95,6 +96,8 @@ export default function PoolEditor({ pool, library, onChange, mode }: Props) {
           </label>
         </div>
       )}
+      {isProgram && <ShowPicker library={library} selected={pool.filter.showIds ?? []} onChange={(ids) => set((p) => ({ ...p, filter: { ...p.filter, showIds: ids } }))} />}
+      {!isProgram && <SearchRows pool={pool} library={library} onChange={set} />}
       <div className="form-grid">
         <label className="field">Pick order
           <select value={pool.selection} onChange={(e) => set((p) => ({ ...p, selection: e.target.value as SelectionMode }))}>
@@ -106,27 +109,44 @@ export default function PoolEditor({ pool, library, onChange, mode }: Props) {
             <input type="number" value={Math.round((pool.noRepeatMs ?? 0) / MIN)} onChange={(e) => set((p) => ({ ...p, noRepeatMs: Number(e.target.value) * MIN }))} />
           </label>
         )}
-        {isProgram && (
-          <label className="field">Only include episodes between (min)
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input type="number" min={0} step={1} placeholder="any" value={pool.filter.minDurationMs != null ? Math.round(pool.filter.minDurationMs / MIN) : ''}
-                onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, minDurationMs: e.target.value === '' ? undefined : Number(e.target.value) * MIN } }))} />
-              <span className="muted">and</span>
-              <input type="number" min={0} step={1} placeholder="any" value={pool.filter.maxDurationMs != null ? Math.round(pool.filter.maxDurationMs / MIN) : ''}
-                onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, maxDurationMs: e.target.value === '' ? undefined : Number(e.target.value) * MIN } }))} />
-            </div>
-          </label>
-        )}
-        {isProgram && (
-          <label className="check field" style={{ alignSelf: 'end' }}>
-            <input type="checkbox" checked={pool.filter.excludeTags?.some((t) => SKIP.includes(t)) ?? false}
-              onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, excludeTags: e.target.checked ? [...new Set([...(p.filter.excludeTags ?? []), ...SKIP])] : (p.filter.excludeTags ?? []).filter((t) => !SKIP.includes(t)) } }))} />
-            Skip extras, specials, unnumbered files
+        {isProgram && pool.selection === 'shows-shuffled-episodes-in-order' && (
+          <label className="field">Episodes of a show in a row
+            <select value={pool.runLength ?? 1} onChange={(e) => set((p) => ({ ...p, runLength: Number(e.target.value) }))}>
+              <option value={1}>one, then switch shows</option>
+              {[2, 3, 4].map((n) => <option key={n} value={n}>{n} in a row, then switch</option>)}
+            </select>
           </label>
         )}
       </div>
-      {isProgram && <ShowPicker library={library} selected={pool.filter.showIds ?? []} onChange={(ids) => set((p) => ({ ...p, filter: { ...p.filter, showIds: ids } }))} />}
-      {!isProgram && <SearchRows pool={pool} library={library} onChange={set} />}
+      {isProgram && (
+        <Disclosure label="More options">
+          <div className="form-grid">
+            <label className="field">Only episodes between (min)
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input type="number" min={0} step={1} placeholder="any" value={pool.filter.minDurationMs != null ? Math.round(pool.filter.minDurationMs / MIN) : ''}
+                  onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, minDurationMs: e.target.value === '' ? undefined : Number(e.target.value) * MIN } }))} />
+                <span className="muted">and</span>
+                <input type="number" min={0} step={1} placeholder="any" value={pool.filter.maxDurationMs != null ? Math.round(pool.filter.maxDurationMs / MIN) : ''}
+                  onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, maxDurationMs: e.target.value === '' ? undefined : Number(e.target.value) * MIN } }))} />
+              </div>
+            </label>
+            <label className="field">Only seasons
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input type="number" min={0} step={1} placeholder="first" value={pool.filter.seasons?.min ?? ''}
+                  onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, seasons: { ...p.filter.seasons, min: e.target.value === '' ? undefined : Number(e.target.value) } } }))} />
+                <span className="muted">to</span>
+                <input type="number" min={0} step={1} placeholder="last" value={pool.filter.seasons?.max ?? ''}
+                  onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, seasons: { ...p.filter.seasons, max: e.target.value === '' ? undefined : Number(e.target.value) } } }))} />
+              </div>
+            </label>
+            <label className="check field" style={{ alignSelf: 'end' }}>
+              <input type="checkbox" checked={pool.filter.excludeTags?.some((t) => SKIP.includes(t)) ?? false}
+                onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, excludeTags: e.target.checked ? [...new Set([...(p.filter.excludeTags ?? []), ...SKIP])] : (p.filter.excludeTags ?? []).filter((t) => !SKIP.includes(t)) } }))} />
+              Skip extras, specials, unnumbered files
+            </label>
+          </div>
+        </Disclosure>
+      )}
       <Matches pool={pool} library={library} />
     </div>
   );

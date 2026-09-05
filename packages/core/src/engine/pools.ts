@@ -21,6 +21,10 @@ export function termsMatch(item: MediaItem, f: FilterTerms): boolean {
   if (f.excludeTags && f.excludeTags.some((t) => item.tags.includes(t))) return false;
   if (!item.still && f.minDurationMs != null && item.durationMs < f.minDurationMs) return false;
   if (!item.still && f.maxDurationMs != null && item.durationMs > f.maxDurationMs) return false;
+  if (f.seasons && item.season != null) {
+    if (f.seasons.min != null && item.season < f.seasons.min) return false;
+    if (f.seasons.max != null && item.season > f.seasons.max) return false;
+  }
   if (f.folder && !inFolder(item.path, f.folder)) return false;
   if (f.text && !hasText(item, f.text)) return false;
   return true;

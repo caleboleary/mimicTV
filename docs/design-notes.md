@@ -15,11 +15,11 @@ Checked against the engine as of today. "Yes" means it works now with the curren
 | 5 | Replicate a channel, swap the shows | yes | |
 | 6 | Channel bug on shows, off during breaks | yes | |
 | 7 | Off-air overnight: static or test pattern only | awkward | a clock with no program pool works, but "no ads" needs the pool select set to none by hand |
-| 8 | Sitcoms back to back, no ads, no padding (streaming feel) | no | pad-to-none: block ends when content ends |
+| 8 | Sitcoms back to back, no ads, no padding (streaming feel) | yes | "Back to back" preset; pad to 0 = block ends when content ends (2026-09-05) |
 | 9 | Movie channel with a break every ~25 min | yes | Format: fallback breaks every N min or at fixed offsets when an episode has no chapters (2026-09-05) |
-| 10 | Two episodes of the same show, then switch | no | episodes-per-run on a pool |
-| 11 | Only seasons 1 to 3 of a show | no | season range in the pool filter (length range exists since 2026-09-05; same shape) |
-| 12 | Music videos with a bumper every 4 clips | no | count-based breaks |
+| 10 | Two episodes of the same show, then switch | yes | "Episodes of a show in a row" on the Shows card (2026-09-05) |
+| 11 | Only seasons 1 to 3 of a show | yes | season range under Shows > More options (2026-09-05) |
+| 12 | Music videos with a bumper every 4 clips | yes | "Music videos" preset; break after every N stacked programs (2026-09-05) |
 | 13 | Bumper out before every break, bumper in after | no | break template: ordered slots (bumper, ads, filler, ID, bumper) |
 | 14 | "Coming up next" bumper at the end of every program | no | program pre/post-roll slots (same mechanism as 13) |
 | 15 | Ads themed to the era of the show playing | half | a channel-wide era pool works via saved searches (text + folder, OR rows); per-show override of the commercial pool is still missing |
@@ -31,7 +31,7 @@ Checked against the engine as of today. "Yes" means it works now with the curren
 | 21 | Cross-channel no-repeat for commercials | no | shared last-played across channels |
 | 22 | Live ad selection at playback | no | Next's `dynamic` source; already designed for in the emitter split |
 
-**Where the gaps cluster.** Rows 8, 10, 11, 12 are small engine options that don't disturb the model: pad-to-none, episodes-per-run, season filter, count-based breaks. Row 9 landed as a Format option. Rows 13 to 16 all say the same thing: a clock is currently exactly "one program slot plus breaks", and people will want a *sequence* of slots with more control over what surrounds them. Rows 17 to 19 are calendar features on the channel. Row 20 is pure UI.
+**Where the gaps cluster.** Rows 8 to 12 were small engine options and all landed 2026-09-05. Rows 13 to 16 all say the same thing: a clock is currently exactly "one program slot plus breaks", and people will want a *sequence* of slots with more control over what surrounds them. Rows 17 to 19 are calendar features on the channel. Row 20 is pure UI.
 
 ## 2. The object model
 
@@ -75,6 +75,10 @@ Sensible defaults fill everything except shows, so the shortest path is: New cha
 
 Almost nothing, which is the point. Pools and clocks stay as they are in `packages/core`; only their ownership changes (a channel owns some, the library owns the shared ones). The one engine change worth making with this is to generalize a clock from "one program slot" to "a list of slots", which is what rows 13 to 16 need anyway. A today-style clock is a one-slot list, so nothing existing breaks.
 
+### Keeping it simple
+
+Rule from the owner (2026-09-05): the shortest path must never get longer. New channel, pick shows, done. Every engine option added since goes behind a preset, a disclosure, or a default, and never adds a visible control to the default path. Prefer one plain-language choice over three numbers. Look for controls to fold or remove, not only to add.
+
 ### Naming
 
 "Pool" vs "Collection": Legacy users know "collection", but Legacy's collections have no selection rule, and ours do. Keep "pool" in code. In the UI, the shows section doesn't need a noun at all.
@@ -82,10 +86,11 @@ Almost nothing, which is the point. Pools and clocks stay as they are in `packag
 ## 3. Suggested order
 
 1. ~~Restructure the UI to channel-centric with inline pools and formats.~~ Done 2026-09-04.
-2. Close the small engine gaps (rows 8, 10, 11, 12) as options in the Format and Shows sections. Row 9 done.
+2. ~~Close the small engine gaps (rows 8 to 12).~~ Done 2026-09-05, behind presets and disclosures so the default path didn't grow.
 3. Slot lists (rows 13 to 16), then calendar (17 to 19), then cursor editing (20).
 4. ~~Guide view once there are two or more channels.~~ Done 2026-09-04; cross-channel no-repeat (21) still belongs there.
 
 ## 4. Done since
 
+- 2026-09-05 (later): rows 8, 10, 11, 12 closed in the engine (pad-to-none, run length, season range, break every N stacked programs). Scenario table is now executable: `packages/core/test/scenarios.test.ts`, one test per row, open rows as `it.todo`. UI simplicity pass: Format card is six plain-language presets with every knob under "Customize"; Shows card is picker + order with the rest under "More options"; interstitial pools show one summary line with the editor behind "Edit".
 - 2026-09-05: pool length range (min/max), saved searches replacing tag chips, break fallback (interval / offsets) with a chapters-honored switch, removed the hidden 24-ads-per-break cap, pool contents cached per simulation run (450 ms to 30 ms on a 3.6k-item library), help tooltips on channel sections.

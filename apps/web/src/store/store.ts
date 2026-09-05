@@ -115,7 +115,7 @@ export const useStore = create<State>()(
         const clock: Clock = {
           id: uid('clock'), ownerChannelId: id, name: 'All day',
           program: { poolId: showPool.id, targetMs: 22 * MIN, toleranceMs: 4 * MIN, allowMultiple: true },
-          breaks: { atChapters: true, poolId: ads, equalize: true, midTargetMs: 2 * MIN, maxItems: 0 },
+          breaks: { atChapters: true, fallback: { mode: 'interval', everyMs: 8 * MIN }, betweenPrograms: 1, poolId: ads, equalize: true, midTargetMs: 2 * MIN, maxItems: 0 },
           networkId: { enabled: true, poolId: ids, nearMinutes: [0, 30], windowMs: 3 * MIN },
           pad: { toMinutes: 30, poolId: filler },
         };

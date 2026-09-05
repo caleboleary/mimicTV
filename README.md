@@ -1,4 +1,4 @@
-<p align="center"><img src="mimicTV.png" alt="mimicTV: a mimic disguised as a CRT television, tongue wrapped around a remote" width="220"></p>
+<p align="center"><img src="mimictv.png" alt="mimicTV: a mimic disguised as a CRT television, tongue wrapped around a remote" width="220"></p>
 
 # mimicTV
 
