@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { poolItems, fmtDuration, MIN, type Library, type MediaKind, type Pool, type SelectionMode } from '@mimictv/core';
+import { useMemo, useState } from 'react';
+import { poolItems, libraryFolders, termsMatch, fmtDuration, MIN, type FilterTerms, type Library, type MediaKind, type Pool, type SelectionMode } from '@mimictv/core';
 import ShowPicker from './ShowPicker';
 
 const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'filler'];
@@ -15,14 +15,73 @@ interface Props {
   pool: Pool;
   library: Library;
   onChange: (patch: (p: Pool) => Pool) => void;
-  /** program: shows + order. interstitial: tags + order. full: everything incl. kinds and name. */
+  /** program: shows + order. interstitial: searches + order. full: everything incl. kinds and name. */
   mode: 'program' | 'interstitial' | 'full';
+}
+
+/** Saved searches, OR'd together: "text" in "folder". */
+function SearchRows({ pool, library, onChange: set }: Omit<Props, 'mode'>) {
+  const rows = pool.filter.any ?? [];
+  const { any: _ignored, ...scope } = pool.filter;
+  const folders = useMemo(() => libraryFolders(library, scope), [library, pool.filter]);
+  const scoped = useMemo(() => library.items.filter((i) => termsMatch(i, scope)), [library, pool.filter]);
+  const update = (i: number, patch: Partial<FilterTerms>) => set((p) => ({ ...p, filter: { ...p.filter, any: (p.filter.any ?? []).map((r, j) => (j === i ? { ...r, ...patch } : r)) } }));
+  const remove = (i: number) => set((p) => ({ ...p, filter: { ...p.filter, any: (p.filter.any ?? []).filter((_, j) => j !== i) } }));
+  const add = () => set((p) => ({ ...p, filter: { ...p.filter, any: [...(p.filter.any ?? []), { text: '', folder: '' }] } }));
+  return (
+    <div className="field">
+      <span>Saved searches {rows.length > 1 ? '(an item matches if any row matches)' : ''}</span>
+      {rows.length === 0 && <div className="muted small">No searches: everything in scope is included. Add one to narrow it down, e.g. "nike" in the commercials folder.</div>}
+      <div className="search-rows">
+        {rows.map((r, i) => {
+          const n = scoped.filter((it) => termsMatch(it, r)).length;
+          return (
+            <div className="search-row" key={i}>
+              <input type="text" placeholder="search text…" value={r.text ?? ''} onChange={(e) => update(i, { text: e.target.value })} />
+              <span className="muted small">in</span>
+              <select value={r.folder ?? ''} onChange={(e) => update(i, { folder: e.target.value })}>
+                <option value="">any folder</option>
+                {folders.map((f) => <option key={f.path} value={f.path}>{'  '.repeat(Math.max(0, f.depth - 2))}{f.path.split('/').pop()} · {f.count}</option>)}
+              </select>
+              <span className={`badge${n === 0 ? ' warn' : ''}`}>{n}</span>
+              <button className="btn sm" title="Remove this search" onClick={() => remove(i)}>×</button>
+            </div>
+          );
+        })}
+      </div>
+      <div><button className="btn sm" onClick={add}>+ add search</button></div>
+    </div>
+  );
+}
+
+function Matches({ pool, library }: { pool: Pool; library: Library }) {
+  const [open, setOpen] = useState(false);
+  const items = useMemo(() => poolItems(pool, library), [pool, library]);
+  const total = items.reduce((n, i) => n + i.durationMs, 0);
+  return (
+    <div>
+      <button className="btn sm" onClick={() => setOpen((v) => !v)} style={{ marginBottom: open ? 8 : 0 }}>
+        {items.length} items match{items.length > 0 ? ` · ${fmtDuration(total)} total` : ''} {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div className="matches">
+          {items.length === 0 && <div className="muted small">Nothing matches. Loosen a search or the scope above.</div>}
+          {items.slice(0, 60).map((i) => (
+            <div className="match" key={i.id}>
+              <span>{i.title}</span>
+              <span className="muted small mono">{i.durationMs ? fmtDuration(i.durationMs) : 'any'}</span>
+              <span className="muted small path" title={i.path}>{i.path.split('/').slice(-3, -1).join('/')}</span>
+            </div>
+          ))}
+          {items.length > 60 && <div className="muted small">…and {items.length - 60} more</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PoolEditor({ pool, library, onChange, mode }: Props) {
   const isProgram = mode === 'program' || (mode === 'full' && (pool.filter.kinds?.includes('episode') ?? false));
-  const allTags = useMemo(() => [...new Set(library.items.flatMap((i) => i.tags))].filter((t) => !KINDS.includes(t as MediaKind) && !SKIP.includes(t)).sort(), [library]);
-  const count = useMemo(() => poolItems(pool, library).length, [pool, library]);
   const set = onChange;
   return (
     <div className="recipe" style={{ gap: 10 }}>
@@ -48,6 +107,17 @@ export default function PoolEditor({ pool, library, onChange, mode }: Props) {
           </label>
         )}
         {isProgram && (
+          <label className="field">Only include episodes between (min)
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input type="number" min={0} step={1} placeholder="any" value={pool.filter.minDurationMs != null ? Math.round(pool.filter.minDurationMs / MIN) : ''}
+                onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, minDurationMs: e.target.value === '' ? undefined : Number(e.target.value) * MIN } }))} />
+              <span className="muted">and</span>
+              <input type="number" min={0} step={1} placeholder="any" value={pool.filter.maxDurationMs != null ? Math.round(pool.filter.maxDurationMs / MIN) : ''}
+                onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, maxDurationMs: e.target.value === '' ? undefined : Number(e.target.value) * MIN } }))} />
+            </div>
+          </label>
+        )}
+        {isProgram && (
           <label className="check field" style={{ alignSelf: 'end' }}>
             <input type="checkbox" checked={pool.filter.excludeTags?.some((t) => SKIP.includes(t)) ?? false}
               onChange={(e) => set((p) => ({ ...p, filter: { ...p.filter, excludeTags: e.target.checked ? [...new Set([...(p.filter.excludeTags ?? []), ...SKIP])] : (p.filter.excludeTags ?? []).filter((t) => !SKIP.includes(t)) } }))} />
@@ -56,14 +126,8 @@ export default function PoolEditor({ pool, library, onChange, mode }: Props) {
         )}
       </div>
       {isProgram && <ShowPicker library={library} selected={pool.filter.showIds ?? []} onChange={(ids) => set((p) => ({ ...p, filter: { ...p.filter, showIds: ids } }))} />}
-      {!isProgram && allTags.length > 0 && (
-        <label className="field">Only items tagged (all must match)
-          <div className="chips" style={{ flexWrap: 'wrap' }}>
-            {allTags.map((t) => { const on = pool.filter.tags?.includes(t) ?? false; return <button key={t} className={`chip${on ? ' on' : ''}`} onClick={() => set((p) => ({ ...p, filter: { ...p.filter, tags: on ? (p.filter.tags ?? []).filter((x) => x !== t) : [...(p.filter.tags ?? []), t] } }))}>{t}</button>; })}
-          </div>
-        </label>
-      )}
-      <div className="muted small">{count} items match{count > 0 ? ` · ${fmtDuration(poolItems(pool, library).reduce((n, i) => n + i.durationMs, 0))} total` : ''}</div>
+      {!isProgram && <SearchRows pool={pool} library={library} onChange={set} />}
+      <Matches pool={pool} library={library} />
     </div>
   );
 }

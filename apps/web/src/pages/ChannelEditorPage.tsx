@@ -13,6 +13,47 @@ import BlockDetail from '../components/BlockDetail';
 type Role = 'program' | 'commercial' | 'network-id' | 'filler';
 const ROLE_LABEL: Record<Role, string> = { program: 'Shows', commercial: 'Commercials', 'network-id': 'Network IDs', filler: 'Filler / pad' };
 
+const HELP = {
+  schedule: (
+    <>
+      <p><b>When each format runs.</b> By default one format covers the whole day. Add a time band to change things at a certain hour: cartoons in the morning, dramas at night.</p>
+      <p>Each band has its own shows, format, and breaks. Pick a band here and the sections below edit that band. The last band of the day runs until the first one starts again.</p>
+    </>
+  ),
+  shows: (
+    <>
+      <p><b>What plays.</b> Tick the shows this channel should draw from, then choose how to pick from them. "Shuffle shows, episodes in order" is the classic cable feel: a random show each slot, but every show works through its episodes in order.</p>
+      <p>The length range and the "skip extras" box keep stray shorts, specials, and bonus files off the air. Leave no shows ticked to use every show in the library.</p>
+    </>
+  ),
+  format: (
+    <>
+      <p><b>The shape of each slot.</b> How much content fits, whether two shorts stack into one slot, where breaks fall, and how the slot pads out to the next :30 or :00.</p>
+      <p>When an episode has no chapter markers you can still cut it every N minutes or at set offsets, so a 44-minute drama gets real mid-rolls instead of one long break at the end.</p>
+      <p>"Equalize" spreads the pad time evenly across every break so mid-rolls and the end-of-show break feel the same length. Watch the preview re-flow as you change these.</p>
+    </>
+  ),
+  breaks: (
+    <>
+      <p><b>What fills the gaps.</b> Commercials play first in each break, filler pads any remainder, and a network ID plays last when a break ends near :00 or :30.</p>
+      <p>Each one is a pool. A private pool belongs to this channel; a shared collection is reused across channels and edited in the Library. Use saved searches to narrow a pool, e.g. "nike" in your commercials folder.</p>
+    </>
+  ),
+  identity: (
+    <>
+      <p><b>How the channel appears to players.</b> The tvg_id names the guide file that Plex, Jellyfin, or your IPTV app reads. Group and logo pass through to the lineup.</p>
+      <p>The anchor is the moment this channel's timeline began. The seed makes the "random" choices repeatable, so the same setup always produces the same day.</p>
+    </>
+  ),
+};
+
+function breakSummary(c: Clock): string {
+  const fb = c.breaks.fallback;
+  const fallback = !fb || fb.mode === 'none' ? '' : fb.mode === 'interval' ? `every ${Math.round(fb.everyMs / 60000)} min` : `at ${fb.offsetsMs.map((m) => Math.round(m / 60000)).join('/')} min`;
+  if (c.breaks.atChapters) return fallback ? `chapters, else ${fallback}` : 'breaks at chapters';
+  return fallback ? `breaks ${fallback}` : 'no mid-rolls';
+}
+
 function poolFitsRole(p: Pool, role: Role): boolean {
   const kinds = p.filter.kinds ?? [];
   if (role === 'program') return kinds.length === 0 || kinds.includes('episode') || kinds.includes('movie');
@@ -129,7 +170,7 @@ export default function ChannelEditorPage() {
             <input className="name" type="text" value={channel.name} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, name: e.target.value }))} />
           </div>
 
-          <Card title="Schedule" summary={channel.dayparts.length === 1 ? 'all day' : `${channel.dayparts.length} bands`} open={channel.dayparts.length > 1}>
+          <Card title="Schedule" help={HELP.schedule} summary={channel.dayparts.length === 1 ? 'all day' : `${channel.dayparts.length} bands`} open={channel.dayparts.length > 1}>
             <div className="bands">
               {channel.dayparts.map((d, i) => (
                 <button key={i} className={`band${band === d ? ' on' : ''}`} onClick={() => setBandIdx(i)}>
@@ -153,10 +194,10 @@ export default function ChannelEditorPage() {
 
           {clock ? (
             <>
-              <Card title="Shows" summary={programPool ? `${showCount} shows · ${MODES.find((m) => m.v === programPool.selection)?.label.toLowerCase()}` : 'none'}>
+              <Card title="Shows" help={HELP.shows} summary={programPool ? `${showCount} shows · ${MODES.find((m) => m.v === programPool.selection)?.label.toLowerCase()}` : 'none'}>
                 <PoolSlot role="program" poolId={clock.program.poolId} channelId={channel.id} onPick={pickPool('program')} />
               </Card>
-              <Card title="Format" summary={`${Math.round(clock.program.targetMs / 60000)} min · pad :${clock.pad.toMinutes} · ${clock.breaks.atChapters ? 'breaks at chapters' : 'no mid-rolls'}`} open={false}>
+              <Card title="Format" help={HELP.format} summary={`${Math.round(clock.program.targetMs / 60000)} min · pad :${clock.pad.toMinutes} · ${breakSummary(clock)}`} open={false}>
                 {!clock.ownerChannelId && clockUsedBy > 1 && (
                   <div className="shared-note" style={{ marginBottom: 10 }}>
                     <span>This format is shared by {clockUsedBy} channels. Changes affect all of them.</span>
@@ -165,7 +206,7 @@ export default function ChannelEditorPage() {
                 )}
                 <FormatEditor clock={clock} onChange={setClock} />
               </Card>
-              <Card title="Breaks" summary={[clock.breaks.poolId && 'ads', clock.networkId.enabled && clock.networkId.poolId && 'IDs', clock.pad.poolId && 'filler'].filter(Boolean).join(' · ') || 'nothing'} open={false}>
+              <Card title="Breaks" help={HELP.breaks} summary={[clock.breaks.poolId && 'ads', clock.networkId.enabled && clock.networkId.poolId && 'IDs', clock.pad.poolId && 'filler'].filter(Boolean).join(' · ') || 'nothing'} open={false}>
                 <div className="recipe" style={{ gap: 16 }}>
                   {(['commercial', 'network-id', 'filler'] as Role[]).map((role) => (
                     <div key={role}>
@@ -180,7 +221,7 @@ export default function ChannelEditorPage() {
             <div className="panel empty">This band points at a missing format. Remove the band or add a new one.</div>
           )}
 
-          <Card title="Identity" summary={channel.tvgId} open={false}>
+          <Card title="Identity" help={HELP.identity} summary={channel.tvgId} open={false}>
             <div className="form-grid">
               <label className="field">tvg_id<input type="text" value={channel.tvgId} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, tvgId: e.target.value }))} /></label>
               <label className="field">Group<input type="text" value={channel.group ?? ''} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, group: e.target.value }))} /></label>

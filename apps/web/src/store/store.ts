@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import {
-  buildStubLibrary, defaultChannels, defaultClocks, defaultPools, defaultAnchorMs, MIN, HOUR,
+  buildStubLibrary, defaultChannels, defaultClocks, defaultPools, defaultAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS, MIN, HOUR,
   type Channel, type Clock, type Library, type Pool, type MediaKind,
 } from '@mimictv/core';
 
@@ -106,7 +106,7 @@ export const useStore = create<State>()(
         const shared = (kind: MediaKind) => s.pools.find((p) => !p.ownerChannelId && p.filter.kinds?.length === 1 && p.filter.kinds[0] === kind);
         const showPool: Pool = {
           id: uid('pool-shows'), ownerChannelId: id, name: `${name} shows`,
-          filter: { kinds: ['episode'], showIds: [], excludeTags: ['unnumbered', 'special', 'extra'] },
+          filter: { kinds: ['episode'], showIds: [], excludeTags: ['unnumbered', 'special', 'extra'], minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS },
           selection: 'shows-shuffled-episodes-in-order',
         };
         const extra: Pool[] = [];
@@ -257,6 +257,15 @@ function adoptSingleUseRules() {
   if (clocks.some((c, i) => c !== s.clocks[i]) || pools.some((p, i) => p !== s.pools[i])) useStore.setState({ clocks, pools });
 }
 
+/** Episode pools made before length limits existed get the defaults once; a user can clear them afterwards. */
+function applyDefaultProgramRange() {
+  const s = useStore.getState();
+  const isEpisodePool = (p: Pool) => p.filter.kinds?.length === 1 && p.filter.kinds[0] === 'episode';
+  const needs = (p: Pool) => isEpisodePool(p) && p.filter.minDurationMs === undefined && p.filter.maxDurationMs === undefined;
+  if (!s.pools.some(needs)) return;
+  useStore.setState({ pools: s.pools.map((p) => (needs(p) ? { ...p, filter: { ...p.filter, minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS } } : p)) });
+}
+
 type RulesSnapshot = Pick<State, 'pools' | 'clocks' | 'channels' | 'selectedChannelId' | 'previewDate' | 'librarySource'>;
 
 async function getJson<T>(url: string): Promise<T | undefined> {
@@ -298,6 +307,7 @@ export async function hydrateLibrary(): Promise<void> {
   }
 
   adoptSingleUseRules();
+  applyDefaultProgramRange();
   const s0 = useStore.getState();
   if (!serverRulesSeen) {
     const rules: RulesSnapshot = { pools: s0.pools, clocks: s0.clocks, channels: s0.channels, selectedChannelId: s0.selectedChannelId, previewDate: s0.previewDate, librarySource: s0.librarySource };

@@ -11,7 +11,7 @@ export default function App() {
   return (
     <div className="app">
       <nav className="nav">
-        <div className="wordmark"><span className="dot" />mimicTV</div>
+        <NavLink to="/guide" className="wordmark"><span className="mark"><span className="glow"><img src="/mimictv-256.png" alt="" /></span><img src="/mimictv-256.png" alt="" /></span><span>mimicTV</span></NavLink>
         <NavLink to="/guide">Guide</NavLink>
         <NavLink to="/channels">Channels</NavLink>
         <NavLink to="/library">Library</NavLink>

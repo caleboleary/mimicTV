@@ -54,12 +54,29 @@ export type SelectionMode =
   | 'random'
   | 'shuffle';
 
-export interface PoolFilter {
+/** One set of conditions. Every field present must match. */
+export interface FilterTerms {
+  /** Free text; every word must appear in the title or path, case-insensitively. */
+  text?: string;
+  /** Only items inside this folder (path prefix). */
+  folder?: string;
   kinds?: MediaKind[];
   showIds?: string[];
   tags?: string[];
   /** Items carrying any of these tags are left out, e.g. ['unnumbered'] to skip extras and movies in show folders. */
   excludeTags?: string[];
+  /** Leave out items shorter than this (ms). Unset = no minimum. */
+  minDurationMs?: number;
+  /** Leave out items longer than this (ms). Unset = no maximum. */
+  maxDurationMs?: number;
+}
+
+/**
+ * A pool's filter is its scope (the top-level terms, all of which must match) plus optional
+ * saved searches in `any`: when present, an item must also match at least one of them.
+ */
+export interface PoolFilter extends FilterTerms {
+  any?: FilterTerms[];
 }
 
 export interface Pool {
@@ -73,6 +90,11 @@ export interface Pool {
   /** For random selection: avoid repeating an item within this much channel time. */
   noRepeatMs?: number;
 }
+
+export type BreakFallback =
+  | { mode: 'none' }
+  | { mode: 'interval'; everyMs: number }
+  | { mode: 'offsets'; offsetsMs: number[] };
 
 export interface Clock {
   id: string;
@@ -89,8 +111,13 @@ export interface Clock {
     allowMultiple: boolean;
   };
   breaks: {
-    /** Insert mid-roll breaks at each program's break points. */
+    /** Cut at a program's own break points (chapters, blackdetect, manual) when it has any. */
     atChapters: boolean;
+    /**
+     * Where to cut when a program has no break points, or when atChapters is off.
+     * Offsets and intervals are measured from the start of the program, not the wall clock.
+     */
+    fallback?: BreakFallback;
     poolId: string;
     /** Spread the pad budget evenly across all breaks (mid + post). */
     equalize: boolean;

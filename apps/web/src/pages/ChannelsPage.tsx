@@ -34,7 +34,12 @@ export default function ChannelsPage() {
         <button className="btn primary" onClick={() => nav(`/channels/${createChannel()}`)}>New channel</button>
       </div>
       {showLineup && <pre className="code" style={{ marginBottom: 14 }}>{JSON.stringify(lineup, null, 2)}</pre>}
-      {sorted.length === 0 && <div className="panel empty">No channels yet. New channel gives you a working half-hour format; you just pick the shows.</div>}
+      {sorted.length === 0 && (
+        <div className="panel empty hero">
+          <img src="/mimictv-512.png" alt="" />
+          <div>No channels yet. New channel gives you a working half-hour format; you just pick the shows.</div>
+        </div>
+      )}
       <div className="channel-cards">
         {sorted.map((ch) => {
           const sim = sims.get(ch.id);

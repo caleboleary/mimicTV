@@ -1,11 +1,16 @@
 import type { Channel, Clock, Pool } from './types';
 import { HOUR, MIN } from './time';
 
+/** Default length range for programs: skips stray shorts and multi-hour files in a show folder. */
+export const DEFAULT_PROGRAM_MIN_MS = 5 * MIN;
+export const DEFAULT_PROGRAM_MAX_MS = 90 * MIN;
+const PROGRAM_RANGE = { minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS };
+
 export function defaultPools(): Pool[] {
   return [
-    { id: 'pool-sitcoms', name: 'Sitcoms', description: 'Shuffle shows, keep each show in order', filter: { kinds: ['episode'], tags: ['sitcom'] }, selection: 'shows-shuffled-episodes-in-order' },
-    { id: 'pool-cartoons', name: 'Cartoons', description: '11-minute shorts', filter: { kinds: ['episode'], tags: ['cartoon'] }, selection: 'shows-shuffled-episodes-in-order' },
-    { id: 'pool-drama', name: 'Hour Dramas', filter: { kinds: ['episode'], tags: ['drama'] }, selection: 'shows-shuffled-episodes-in-order' },
+    { id: 'pool-sitcoms', name: 'Sitcoms', description: 'Shuffle shows, keep each show in order', filter: { kinds: ['episode'], tags: ['sitcom'], ...PROGRAM_RANGE }, selection: 'shows-shuffled-episodes-in-order' },
+    { id: 'pool-cartoons', name: 'Cartoons', description: '11-minute shorts', filter: { kinds: ['episode'], tags: ['cartoon'], ...PROGRAM_RANGE }, selection: 'shows-shuffled-episodes-in-order' },
+    { id: 'pool-drama', name: 'Hour Dramas', filter: { kinds: ['episode'], tags: ['drama'], ...PROGRAM_RANGE }, selection: 'shows-shuffled-episodes-in-order' },
     { id: 'pool-ads-90s', name: 'Commercials: 90s', description: 'Random, no repeat within 2h', filter: { kinds: ['commercial'], tags: ['90s'] }, selection: 'random', noRepeatMs: 2 * HOUR },
     { id: 'pool-ads-all', name: 'Commercials: all eras', filter: { kinds: ['commercial'] }, selection: 'random', noRepeatMs: HOUR },
     { id: 'pool-ids', name: 'Network IDs', filter: { kinds: ['network-id'] }, selection: 'shuffle' },
@@ -80,7 +85,7 @@ export function starterRules(library: import('./types').Library): { pools: Pool[
       const items = byKind(kind).filter((i) => i.tags[1] === tag);
       const pool: Pool = {
         id: `pool-${kind}-${tag}`, name: `${tag} (${kind === 'episode' ? 'shows' : 'movies'})`,
-        filter: { kinds: [kind], tags: [tag], excludeTags: kind === 'episode' ? ['unnumbered', 'special', 'extra'] : undefined },
+        filter: { kinds: [kind], tags: [tag], excludeTags: kind === 'episode' ? ['unnumbered', 'special', 'extra'] : undefined, ...(kind === 'episode' ? PROGRAM_RANGE : {}) },
         selection: kind === 'episode' ? 'shows-shuffled-episodes-in-order' : 'shuffle',
       };
       pools.push(pool);

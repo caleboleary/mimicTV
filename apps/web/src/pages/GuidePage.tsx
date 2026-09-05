@@ -38,7 +38,10 @@ export default function GuidePage() {
         <DateBar onChange={() => setSel(undefined)} />
       </div>
       {sorted.length === 0 ? (
-        <div className="panel empty">No channels yet. <Link to="/channels">Make one</Link> and it shows up here.</div>
+        <div className="panel empty hero">
+          <img src="/mimictv-512.png" alt="" />
+          <div>No channels yet. <Link to="/channels">Make one</Link> and it shows up here.</div>
+        </div>
       ) : (
         <div className="guide">
           <div className="panel guide-grid">

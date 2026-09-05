@@ -1,6 +1,6 @@
 # Design notes: scenarios and object model
 
-_2026-09-04. A thinking pass, not a spec. Argue with it._
+_2026-09-04, status column updated 2026-09-05. A thinking pass, not a spec. Argue with it._
 
 ## 1. Scenarios people will want
 
@@ -16,13 +16,13 @@ Checked against the engine as of today. "Yes" means it works now with the curren
 | 6 | Channel bug on shows, off during breaks | yes | |
 | 7 | Off-air overnight: static or test pattern only | awkward | a clock with no program pool works, but "no ads" needs the pool select set to none by hand |
 | 8 | Sitcoms back to back, no ads, no padding (streaming feel) | no | pad-to-none: block ends when content ends |
-| 9 | Movie channel with a break every ~25 min | no | interval breaks when no chapters exist |
+| 9 | Movie channel with a break every ~25 min | yes | Format: fallback breaks every N min or at fixed offsets when an episode has no chapters (2026-09-05) |
 | 10 | Two episodes of the same show, then switch | no | episodes-per-run on a pool |
-| 11 | Only seasons 1 to 3 of a show | no | season range in the pool filter |
+| 11 | Only seasons 1 to 3 of a show | no | season range in the pool filter (length range exists since 2026-09-05; same shape) |
 | 12 | Music videos with a bumper every 4 clips | no | count-based breaks |
 | 13 | Bumper out before every break, bumper in after | no | break template: ordered slots (bumper, ads, filler, ID, bumper) |
 | 14 | "Coming up next" bumper at the end of every program | no | program pre/post-roll slots (same mechanism as 13) |
-| 15 | Ads themed to the era of the show playing | no | per-show or per-tag override of the commercial pool |
+| 15 | Ads themed to the era of the show playing | half | a channel-wide era pool works via saved searches (text + folder, OR rows); per-show override of the commercial pool is still missing |
 | 16 | The Simpsons at 6pm every day, whatever else is going on | no | time-anchored slots. Clocks are purely sequential today |
 | 17 | Saturday-morning-only cartoons | no | day-of-week on dayparts |
 | 18 | Holiday specials only in December | no | date windows on pools |
@@ -31,7 +31,7 @@ Checked against the engine as of today. "Yes" means it works now with the curren
 | 21 | Cross-channel no-repeat for commercials | no | shared last-played across channels |
 | 22 | Live ad selection at playback | no | Next's `dynamic` source; already designed for in the emitter split |
 
-**Where the gaps cluster.** Rows 8 to 12 are small engine options that don't disturb the model: pad-to-none, interval breaks, episodes-per-run, season filter, count-based breaks. Rows 13 to 16 all say the same thing: a clock is currently exactly "one program slot plus breaks", and people will want a *sequence* of slots with more control over what surrounds them. Rows 17 to 19 are calendar features on the channel. Row 20 is pure UI.
+**Where the gaps cluster.** Rows 8, 10, 11, 12 are small engine options that don't disturb the model: pad-to-none, episodes-per-run, season filter, count-based breaks. Row 9 landed as a Format option. Rows 13 to 16 all say the same thing: a clock is currently exactly "one program slot plus breaks", and people will want a *sequence* of slots with more control over what surrounds them. Rows 17 to 19 are calendar features on the channel. Row 20 is pure UI.
 
 ## 2. The object model
 
@@ -81,7 +81,11 @@ Almost nothing, which is the point. Pools and clocks stay as they are in `packag
 
 ## 3. Suggested order
 
-1. Restructure the UI to channel-centric with inline pools and formats. Keep the engine as is.
-2. Close the small engine gaps (rows 8 to 12) as options in the Format section.
+1. ~~Restructure the UI to channel-centric with inline pools and formats.~~ Done 2026-09-04.
+2. Close the small engine gaps (rows 8, 10, 11, 12) as options in the Format and Shows sections. Row 9 done.
 3. Slot lists (rows 13 to 16), then calendar (17 to 19), then cursor editing (20).
-4. Guide view once there are two or more channels worth looking at together.
+4. ~~Guide view once there are two or more channels.~~ Done 2026-09-04; cross-channel no-repeat (21) still belongs there.
+
+## 4. Done since
+
+- 2026-09-05: pool length range (min/max), saved searches replacing tag chips, break fallback (interval / offsets) with a chapters-honored switch, removed the hidden 24-ads-per-break cap, pool contents cached per simulation run (450 ms to 30 ms on a 3.6k-item library), help tooltips on channel sections.

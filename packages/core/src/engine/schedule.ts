@@ -6,6 +6,8 @@ import { MIN, SEC, ceilToMinutes, distanceToBoundary, fmtClock, localMidnight } 
 import { BLACK, Selector } from './select';
 
 const MIN_MID_BREAK_MS = 20 * SEC;
+/** Runaway guard only; the time budget and the clock's maxItems are the real limits. */
+const MAX_ADS_PER_BREAK = 500;
 const MAX_PROGRAMS_PER_BLOCK = 4;
 const MAX_BLOCKS_PER_RUN = 20000;
 
@@ -39,15 +41,25 @@ interface Segment {
 
 const DEFAULT_MIN_SEGMENT_MS = 3 * MIN;
 
-function segmentsFor(program: MediaItem, programIndex: number, atChapters: boolean, minSegmentMs: number): Segment[] {
+/** Candidate cut points for a program: its own break points if allowed and present, else the clock's fallback. */
+export function candidateCuts(program: MediaItem, breaks: Clock['breaks']): number[] {
+  if (breaks.atChapters && program.breakPoints.length > 0) return program.breakPoints;
+  const fb = breaks.fallback;
+  if (!fb || fb.mode === 'none') return [];
+  if (fb.mode === 'offsets') return fb.offsetsMs.filter((ms) => ms > 0 && ms < program.durationMs);
+  if (fb.everyMs <= 0) return [];
+  const out: number[] = [];
+  for (let t = fb.everyMs; t < program.durationMs; t += fb.everyMs) out.push(t);
+  return out;
+}
+
+function segmentsFor(program: MediaItem, programIndex: number, breaks: Clock['breaks'], minSegmentMs: number): Segment[] {
   const cuts: number[] = [];
-  if (atChapters) {
-    // Keep a cut only if both the segment before it and the remainder after it are long enough.
-    // This drops "intro" chapters at 0:30 and credits chapters near the end.
-    let last = 0;
-    for (const b of [...program.breakPoints].sort((a, b) => a - b)) {
-      if (b - last >= minSegmentMs && program.durationMs - b >= minSegmentMs) { cuts.push(b); last = b; }
-    }
+  // Keep a cut only if both the segment before it and the remainder after it are long enough.
+  // This drops "intro" chapters at 0:30 and credits chapters near the end.
+  let last = 0;
+  for (const b of [...candidateCuts(program, breaks)].sort((a, b) => a - b)) {
+    if (b - last >= minSegmentMs && program.durationMs - b >= minSegmentMs) { cuts.push(b); last = b; }
   }
   const bounds = [0, ...cuts, program.durationMs];
   const out: Segment[] = [];
@@ -90,7 +102,7 @@ function fillBreak(
   const used = new Set<string>();
   let usedMs = 0;
   if (clock.breaks.poolId) {
-    for (let tries = 0; tries < 24; tries++) {
+    for (let guard = 0; guard < MAX_ADS_PER_BREAK; guard++) {
       if (clock.breaks.maxItems > 0 && ads.length >= clock.breaks.maxItems) break;
       const remaining = budget - usedMs;
       if (remaining < 10 * SEC) break;
@@ -181,7 +193,7 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
 
   // 2. Cut programs into segments at their break points.
   const minSeg = clock.breaks.minSegmentMs ?? DEFAULT_MIN_SEGMENT_MS;
-  const segments = programs.flatMap((p, i) => segmentsFor(p.item, i, clock.breaks.atChapters, minSeg));
+  const segments = programs.flatMap((p, i) => segmentsFor(p.item, i, clock.breaks, minSeg));
   const midCount = segments.length - 1;
   const breakCount = midCount + 1; // + post-roll
 

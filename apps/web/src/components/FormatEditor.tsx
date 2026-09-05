@@ -1,9 +1,14 @@
-import { MIN, SEC, type Clock } from '@mimictv/core';
+import { MIN, SEC, type BreakFallback, type Clock } from '@mimictv/core';
 
 interface Props { clock: Clock; onChange: (patch: (c: Clock) => Clock) => void }
 
 export default function FormatEditor({ clock, onChange: set }: Props) {
   const minutes = (ms: number) => Math.round((ms / MIN) * 10) / 10;
+  const fb: BreakFallback = clock.breaks.fallback ?? { mode: 'none' };
+  const setFallback = (mode: BreakFallback['mode']) => set((c) => ({
+    ...c,
+    breaks: { ...c.breaks, fallback: mode === 'none' ? { mode } : mode === 'interval' ? { mode, everyMs: 11 * MIN } : { mode, offsetsMs: [9 * MIN, 20 * MIN, 32 * MIN] } },
+  }));
   return (
     <div className="recipe" style={{ gap: 14 }}>
       <div>
@@ -31,8 +36,26 @@ export default function FormatEditor({ clock, onChange: set }: Props) {
         <div className="form-grid">
           <label className="check field">
             <input type="checkbox" checked={clock.breaks.atChapters} onChange={(e) => set((c) => ({ ...c, breaks: { ...c.breaks, atChapters: e.target.checked } }))} />
-            Mid-roll at every break point
+            Use an episode's own break points (chapters) when it has them
           </label>
+          <label className="field">{clock.breaks.atChapters ? 'When an episode has no break points' : 'Cut episodes'}
+            <select value={fb.mode} onChange={(e) => setFallback(e.target.value as BreakFallback['mode'])}>
+              <option value="none">{clock.breaks.atChapters ? 'no mid-rolls, one break after' : 'never: one break after each episode'}</option>
+              <option value="interval">every N minutes</option>
+              <option value="offsets">at these minutes into the episode</option>
+            </select>
+          </label>
+          {fb.mode === 'interval' && (
+            <label className="field">Every (min)
+              <input type="number" min={1} step={0.5} value={minutes(fb.everyMs)} onChange={(e) => set((c) => ({ ...c, breaks: { ...c.breaks, fallback: { mode: 'interval', everyMs: Math.max(1, Number(e.target.value)) * MIN } } }))} />
+            </label>
+          )}
+          {fb.mode === 'offsets' && (
+            <label className="field">Minutes into the episode (comma separated)
+              <input type="text" placeholder="e.g. 9, 20, 32" defaultValue={fb.offsetsMs.map((ms) => minutes(ms)).join(', ')}
+                onBlur={(e) => set((c) => ({ ...c, breaks: { ...c.breaks, fallback: { mode: 'offsets', offsetsMs: e.target.value.split(',').map((x) => Number(x.trim())).filter((n) => n > 0).map((n) => n * MIN) } } }))} />
+            </label>
+          )}
           <label className="check field">
             <input type="checkbox" checked={clock.breaks.equalize} onChange={(e) => set((c) => ({ ...c, breaks: { ...c.breaks, equalize: e.target.checked } }))} />
             Equalize break lengths

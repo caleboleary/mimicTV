@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useDeferredValue, useMemo } from 'react';
 import { simulate, DAY, type Channel, type Ruleset, type Simulation } from '@mimictv/core';
 import { useStore, dateStart } from './store';
 
@@ -19,17 +19,31 @@ function simFor(channel: Channel, ruleset: Ruleset, previewDate: string): Simula
   }
 }
 
-/** Simulate a channel through the preview day plus one day for "upcoming" views. */
+/** Only these channel fields affect the schedule; renaming a channel must not re-simulate it. */
+function scheduleKey(c: Channel): string {
+  return JSON.stringify([c.id, c.dayparts, c.anchorMs, c.seed]);
+}
+
+/**
+ * Simulate a channel through the preview day plus one day for "upcoming" views.
+ * Inputs are deferred so typing stays responsive; the preview catches up a beat later.
+ */
 export function useSim(channel: Channel | undefined): Simulation | undefined {
-  const ruleset = useRuleset();
-  const previewDate = useStore((s) => s.previewDate);
-  return useMemo(() => (channel ? simFor(channel, ruleset, previewDate) : undefined), [channel, ruleset, previewDate]);
+  const ruleset = useDeferredValue(useRuleset());
+  const previewDate = useDeferredValue(useStore((s) => s.previewDate));
+  const key = channel ? scheduleKey(channel) : '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- key stands in for channel
+  const stable = useMemo(() => channel, [key]);
+  return useMemo(() => (stable ? simFor(stable, ruleset, previewDate) : undefined), [stable, ruleset, previewDate]);
 }
 
 export function useSims(channels: Channel[]): Map<string, Simulation | undefined> {
-  const ruleset = useRuleset();
-  const previewDate = useStore((s) => s.previewDate);
-  return useMemo(() => new Map(channels.map((c) => [c.id, simFor(c, ruleset, previewDate)])), [channels, ruleset, previewDate]);
+  const ruleset = useDeferredValue(useRuleset());
+  const previewDate = useDeferredValue(useStore((s) => s.previewDate));
+  const key = channels.map(scheduleKey).join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- key stands in for channels
+  const stable = useMemo(() => channels, [key]);
+  return useMemo(() => new Map(stable.map((c) => [c.id, simFor(c, ruleset, previewDate)])), [stable, ruleset, previewDate]);
 }
 
 export function useSelectedChannel(): Channel | undefined {

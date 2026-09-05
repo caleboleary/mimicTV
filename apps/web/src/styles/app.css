@@ -27,10 +27,46 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 
 .app { display: grid; grid-template-columns: 200px 1fr; height: 100%; }
 .nav { border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; background: var(--panel); }
-.wordmark { font-weight: 700; font-size: 18px; letter-spacing: -0.03em; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
-.wordmark .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.wordmark { font-weight: 700; font-size: 20px; letter-spacing: -0.03em; margin: 4px 0 22px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wordmark img { width: 100px; height: 100px; position: relative; z-index: 1; transition: transform 0.15s; }
+.wordmark:hover img { transform: rotate(-6deg) scale(1.08); }
+/* TV glow: a blurred copy of the mark behind it, its color and position drifting on two out-of-phase loops so it never settles. */
+.wordmark .glow { position: absolute; top: 0; left: 0; width: 100px; height: 100px; pointer-events: none;
+  animation: tv-glow-color 9.7s ease-in-out infinite, tv-glow-drift 6.1s ease-in-out infinite, tv-glow-flicker 3.3s ease-in-out infinite; }
+.wordmark .glow img { filter: blur(14px) saturate(1.6); transition: none; }
+.wordmark .mark { position: relative; width: 100px; height: 100px; }
+@keyframes tv-glow-color {
+  0%   { filter: hue-rotate(0deg) brightness(1); }
+  22%  { filter: hue-rotate(-30deg) brightness(1.25); }
+  38%  { filter: hue-rotate(20deg) brightness(0.8); }
+  55%  { filter: hue-rotate(160deg) brightness(1.1); }
+  63%  { filter: hue-rotate(150deg) brightness(1.4); }
+  80%  { filter: hue-rotate(-90deg) brightness(0.9); }
+  100% { filter: hue-rotate(0deg) brightness(1); }
+}
+@keyframes tv-glow-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  18%  { transform: translate(3px, -2px) scale(1.06); }
+  37%  { transform: translate(-2px, 3px) scale(0.98); }
+  52%  { transform: translate(4px, 2px) scale(1.1); }
+  71%  { transform: translate(-3px, -3px) scale(1.02); }
+  86%  { transform: translate(1px, 3px) scale(1.06); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+/* A third, quicker loop on opacity so the light breathes between the slow drifts. */
+@keyframes tv-glow-flicker {
+  0%   { opacity: 0.55; }
+  30%  { opacity: 0.7; }
+  45%  { opacity: 0.5; }
+  70%  { opacity: 0.75; }
+  100% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) { .wordmark .glow { animation: none; } }
 .nav a { padding: 8px 10px; border-radius: 6px; color: var(--muted); }
+.nav a.wordmark, .nav a.wordmark.active { background: transparent; color: var(--text); padding: 0; }
 .nav a.active { background: var(--panel-2); color: var(--text); }
+.empty.hero { display: grid; justify-items: center; gap: 14px; padding: 40px 30px; }
+.empty.hero img { width: 160px; height: 160px; opacity: 0.9; }
 .nav .spacer { flex: 1; }
 .main { overflow: auto; padding: 24px 28px; }
 
@@ -105,6 +141,9 @@ label.check { display: flex; align-items: center; gap: 8px; }
 .list a, .list button.row { display: block; text-align: left; width: 100%; background: transparent; border: 1px solid transparent; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
 .list a.active, .list button.row.active { background: var(--panel-2); border-color: var(--line); }
 .list .sub { display: block; font-size: 11.5px; color: var(--muted); }
+.row-actions { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.row-actions > div { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.row-actions.active { background: var(--panel-2); }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 td { padding: 6px 8px; border-bottom: 1px solid #1c1f26; vertical-align: top; }
@@ -161,3 +200,22 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 .subtabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
 .subtabs button { background: transparent; border: 0; padding: 8px 12px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .subtabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+
+/* Saved searches */
+.search-rows { display: grid; gap: 6px; margin: 6px 0; }
+.search-row { display: grid; grid-template-columns: minmax(120px, 1fr) auto minmax(160px, 1.4fr) auto auto; gap: 8px; align-items: center; }
+.search-row select { max-width: 100%; }
+.matches { display: grid; gap: 2px; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.match { display: grid; grid-template-columns: 1fr auto minmax(0, 40%); gap: 10px; font-size: 12.5px; padding: 2px 4px; }
+.match .path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+
+/* Help tooltips */
+.help { position: relative; display: inline-flex; flex-shrink: 0; }
+.help-btn { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1; cursor: help; padding: 0; display: grid; place-items: center; }
+.help-btn:hover, .help-btn:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.help-tip { position: absolute; right: 0; top: calc(100% + 8px); width: 300px; z-index: 20; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: var(--text); font-weight: 400; text-align: left; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity 0.12s, transform 0.12s, visibility 0.12s; pointer-events: none; }
+.help-tip::before { content: ''; position: absolute; right: 5px; top: -5px; width: 8px; height: 8px; background: var(--panel-2); border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
+.help:hover .help-tip, .help:focus-within .help-tip { opacity: 1; visibility: visible; transform: translateY(0); }
+.help-tip p { margin: 0 0 6px; }
+.help-tip p:last-child { margin-bottom: 0; }
+.help-tip b { color: var(--accent); font-weight: 600; }

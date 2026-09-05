@@ -209,9 +209,15 @@ function Import() {
             <h3>Received files</h3><span className="muted small">uploaded to <code>data/imports/</code> via <code>scripts/receive.py</code></span>
             <div className="grow" /><button className="btn sm" onClick={refresh}>Refresh</button>
           </div>
+          <p className="muted small" style={{ marginTop: 0 }}>Load a file to preview it, then choose how to apply it below.</p>
           {received.length === 0 ? <div className="muted small">Nothing yet. Start <code>python3 scripts/receive.py</code> here, then run the probe with <code>-u</code> on the media box.</div> : (
             <div className="list">
-              {received.map((f) => <button key={f.name} className={`row${fileName === f.name ? ' active' : ''}`} disabled={busy} onClick={() => onReceived(f)}>{f.name}<span className="sub">{(f.size / 1024).toFixed(0)} KB · {new Date(f.mtime).toLocaleString()}</span></button>)}
+              {received.map((f) => (
+                <div key={f.name} className={`row-actions${fileName === f.name ? ' active' : ''}`}>
+                  <div>{f.name}<span className="sub">{(f.size / 1024).toFixed(0)} KB · {new Date(f.mtime).toLocaleString()}{fileName === f.name ? ' · loaded' : ''}</span></div>
+                  <button className={`btn sm${fileName === f.name ? '' : ' primary'}`} disabled={busy} onClick={() => onReceived(f)}>{fileName === f.name ? 'Reload' : 'Load'}</button>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -18,6 +18,9 @@ export const BLACK: MediaItem = {
 
 export class Selector {
   private poolsById: Map<string, Pool>;
+  /** Library and pools don't change during a run, so each pool's contents are resolved once. */
+  private itemsCache = new Map<string, MediaItem[]>();
+  private showsCache = new Map<string, ReturnType<typeof poolShows>>();
 
   constructor(
     private library: Library,
@@ -30,6 +33,18 @@ export class Selector {
 
   pool(id: string): Pool | undefined {
     return this.poolsById.get(id);
+  }
+
+  private itemsOf(pool: Pool): MediaItem[] {
+    let items = this.itemsCache.get(pool.id);
+    if (!items) { items = poolItems(pool, this.library); this.itemsCache.set(pool.id, items); }
+    return items;
+  }
+
+  private showsOf(pool: Pool): ReturnType<typeof poolShows> {
+    let shows = this.showsCache.get(pool.id);
+    if (!shows) { shows = poolShows(pool, this.library); this.showsCache.set(pool.id, shows); }
+    return shows;
   }
 
   markPlayed(item: MediaItem, at: number) {
@@ -46,7 +61,7 @@ export class Selector {
     if (!pool) return undefined;
 
     if (pool.selection === 'shows-shuffled-episodes-in-order') {
-      const shows = poolShows(pool, this.library);
+      const shows = this.showsOf(pool);
       if (shows.length === 0) return undefined;
       let candidates = shows.length > 1 ? shows.filter((s) => s.showId !== this.cursors.lastShowId) : shows;
       let reasonPrefix = 'Shuffled to';
@@ -72,7 +87,7 @@ export class Selector {
       return { item: ep, reason: `${reasonPrefix} ${show.showId}; cursor was at ${idx + 1}/${show.episodes.length}` };
     }
 
-    const items = poolItems(pool, this.library);
+    const items = this.itemsOf(pool);
     if (items.length === 0) return undefined;
 
     if (pool.selection === 'sequential') {
@@ -104,7 +119,7 @@ export class Selector {
   ): MediaItem | undefined {
     const pool = this.poolsById.get(poolId);
     if (!pool) return undefined;
-    const items = poolItems(pool, this.library).filter(
+    const items = this.itemsOf(pool).filter(
       (i) => !exclude.has(i.id) && (i.trimmable || i.durationMs <= maxMs),
     );
     if (items.length === 0) return undefined;
