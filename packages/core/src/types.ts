@@ -93,6 +93,8 @@ export interface Pool {
   noRepeatMs?: number;
   /** For shows-shuffled: play this many episodes of a show in a row before switching (default 1). */
   runLength?: number;
+  /** For random/shuffle interstitials: the no-repeat window also counts plays on other channels. */
+  noRepeatAcrossChannels?: boolean;
 }
 
 export type BreakFallback =
@@ -105,6 +107,8 @@ export interface Clock {
   name: string;
   /** Set when the clock is one channel's band format. Unset = shared preset. */
   ownerChannelId?: string;
+  /** Off air: no programs, no ads, no IDs. Each block is one slot of filler from the pad pool. */
+  offAir?: boolean;
   program: {
     poolId: string;
     /** Target content length for the slot, e.g. 22 min. */
@@ -147,6 +151,11 @@ export interface Clock {
     };
     /** Use a different commercial pool while certain shows are on. First match wins. */
     overrides?: { showIds: string[]; poolId: string }[];
+    /**
+     * Pick ads at playback instead of in advance: the emitter writes each break as one Next
+     * `dynamic` placeholder that asks mimicTV for items while the break is playing.
+     */
+    live?: boolean;
   };
   networkId: {
     enabled: boolean;
@@ -177,6 +186,10 @@ export interface Daypart {
    * Unset = a base band that runs until the next base band starts.
    */
   endMinute?: number;
+  /** Days of the week this band applies (0 = Sunday). Unset = every day. */
+  days?: number[];
+  /** Calendar window this band applies, as "MM-DD" inclusive; may wrap the year end. Unset = all year. */
+  dates?: { from: string; to: string };
   clockId: string;
 }
 
@@ -193,6 +206,12 @@ export interface Channel {
   anchorMs: number;
   /** Seed for the channel's random stream. Same seed + same rules = same timeline. */
   seed: string;
+  /** A time-shifted copy of another channel (east/west feeds). The recipe comes from the source. */
+  mirrorOf?: string;
+  /** For mirrors: how far behind the source this feed runs, in minutes. */
+  shiftMinutes?: number;
+  /** showId -> episode index the show starts from at the anchor. Set by "jump to" in the UI. */
+  cursorSeeds?: Record<string, number>;
 }
 
 export interface CursorState {
@@ -235,6 +254,8 @@ export interface TimelineEntry {
 export interface ScheduledBreak {
   index: number;
   kind: 'mid' | 'post';
+  /** Commercial pool this break drew from (after any per-show override). */
+  adPoolId?: string;
   start: number;
   end: number;
   targetMs: number;

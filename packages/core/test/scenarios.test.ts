@@ -5,9 +5,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  buildStubLibrary, defaultChannels, defaultClocks, defaultPools, simulate, toPlayout, blocksInWindow,
+  buildStubLibrary, defaultChannels, defaultClocks, defaultPools, simulate, simulateAll, toPlayout, blocksInWindow,
   DAY, HOUR, MIN, SEC,
 } from '../src/index';
+import Ajv2020 from 'ajv/dist/2020';
+import addFormats from 'ajv-formats';
+import schema from '../schema/playout-0.0.3.json';
 import type { Channel, Clock, Library, MediaItem, Pool, Ruleset, ScheduledBlock } from '../src/index';
 
 const library = buildStubLibrary();
@@ -89,7 +92,19 @@ describe('scenario table', () => {
     }
   });
 
-  it.todo('7. off-air overnight: a band that is only a static card, no shows, no ads (needs a "nothing" program option)');
+  it('7. off air overnight: only filler, no shows, no ads, no IDs', () => {
+    const off: Clock = { ...sitcomClock, id: 'clock-off', offAir: true };
+    const ch: Channel = { ...retro, dayparts: [{ startMinute: 0, clockId: 'clock-off' }, { startMinute: 6 * 60, clockId: sitcomClock.id }] };
+    const sim = simulate(ch, { ...base, clocks: [...base.clocks, off] }, ch.anchorMs + DAY);
+    const night = sim.blocks.filter((b) => b.clockId === 'clock-off');
+    expect(night.length).toBeGreaterThan(5);
+    for (const b of night) {
+      expect(b.programs.length).toBe(0);
+      expect(b.entries.every((e) => e.role === 'filler')).toBe(true);
+      expect(b.end - b.start).toBe(30 * MIN);
+    }
+    expect(sim.blocks.some((b) => b.clockId === sitcomClock.id)).toBe(true);
+  });
 
   it('8. back to back, no ads, no padding: blocks end when content ends', () => {
     const clock = withClock({ pad: { toMinutes: 0 }, breaks: { atChapters: false, fallback: { mode: 'none' } }, networkId: { ...sitcomClock.networkId, enabled: false } });
@@ -224,10 +239,85 @@ describe('scenario table', () => {
       expect(sim.blocks.find((x) => x.start === at(0, 19))!.clockId).toBe(drama.id);
     });
   });
-  it.todo('17. Saturday-morning-only band (needs day-of-week on dayparts)');
-  it.todo('18. holiday specials only in December (needs date windows on pools)');
-  it.todo('19. east/west feeds: same channel shifted 3h (needs a channel time offset)');
-  it.todo('20. reset a show cursor or jump to S03E01 from the UI (state exists; needs editing UI)');
-  it.todo('21. cross-channel no-repeat for commercials (needs shared last-played across channels)');
-  it.todo('22. live ad selection at playback via Next dynamic sources');
+  it('17. Saturday-morning-only cartoons', () => {
+    const cartoon = base.clocks.find((c) => c.id === 'clock-cartoon-30')!;
+    const ch: Channel = { ...retro, dayparts: [{ startMinute: 0, clockId: sitcomClock.id }, { startMinute: 6 * 60, days: [6], clockId: cartoon.id }, { startMinute: 12 * 60, clockId: sitcomClock.id }] };
+    const sim = simulate(ch, base, ch.anchorMs + 8 * DAY); // anchor is Tue 2026-09-01
+    const clockAt = (ms: number) => sim.blocks.find((b) => b.start <= ms && b.end > ms)!.clockId;
+    expect(clockAt(new Date(2026, 8, 5, 8).getTime())).toBe(cartoon.id);   // Saturday
+    expect(clockAt(new Date(2026, 8, 6, 8).getTime())).toBe(sitcomClock.id); // Sunday
+    expect(clockAt(new Date(2026, 8, 5, 13).getTime())).toBe(sitcomClock.id); // Saturday afternoon
+  });
+
+  it('18. holiday band only inside a date window', () => {
+    const drama = base.clocks.find((c) => c.id === 'clock-drama-60')!;
+    const anchor = new Date(2026, 10, 29, 0).getTime(); // Nov 29
+    const ch: Channel = { ...retro, anchorMs: anchor, dayparts: [{ startMinute: 0, clockId: sitcomClock.id }, { startMinute: 0, dates: { from: '12-01', to: '12-31' }, clockId: drama.id }] };
+    const sim = simulate(ch, base, anchor + 4 * DAY);
+    const clockAt = (ms: number) => sim.blocks.find((b) => b.start <= ms && b.end > ms)!.clockId;
+    expect(clockAt(new Date(2026, 10, 30, 12).getTime())).toBe(sitcomClock.id);
+    expect(clockAt(new Date(2026, 11, 1, 12).getTime())).toBe(drama.id);
+    expect(clockAt(new Date(2026, 11, 2, 12).getTime())).toBe(drama.id);
+  });
+
+  it('19. west feed: the same channel three hours later', () => {
+    const west: Channel = { ...retro, id: 'ch-west', number: '9', name: 'Retro West', tvgId: 'mimic.west', mirrorOf: retro.id, shiftMinutes: 180 };
+    const sims = simulateAll([retro, west], base, retro.anchorMs + DAY);
+    const east = sims.get(retro.id)!, w = sims.get('ch-west')!;
+    expect(w.blocks.length).toBe(east.blocks.length);
+    east.blocks.forEach((b, i) => {
+      expect(w.blocks[i]!.start).toBe(b.start + 3 * HOUR);
+      expect(w.blocks[i]!.programs.map((p) => p.id)).toEqual(b.programs.map((p) => p.id));
+      expect(w.blocks[i]!.id.startsWith('ch-west-')).toBe(true);
+    });
+  });
+
+  it('20. jump a show to a later episode', () => {
+    const pool = showPool('pool-jump', ['parkside']);
+    const clock = withClock({ program: { poolId: pool.id, allowMultiple: false } });
+    const ch: Channel = { ...channelWith(clock), cursorSeeds: { parkside: 14 } };
+    const sim = simulate(ch, { ...base, pools: [...base.pools, pool], clocks: [...base.clocks, clock] }, ch.anchorMs + 2 * HOUR);
+    const first = sim.blocks[0]!.programs[0]!;
+    expect(first.season).toBe(2);   // 12 per season, index 14 = S02E03
+    expect(first.episode).toBe(3);
+  });
+
+  it('21. commercials do not repeat across channels inside the window', () => {
+    const ads: Pool = { id: 'pool-shared-ads', name: 'shared', filter: { kinds: ['commercial'] }, selection: 'random', noRepeatMs: 20 * MIN, noRepeatAcrossChannels: true };
+    const clock = withClock({ breaks: { poolId: ads.id } });
+    const a: Channel = { ...channelWith(clock), id: 'ch-a', seed: 'a' };
+    const b: Channel = { ...channelWith(clock), id: 'ch-b', seed: 'b' };
+    const rs: Ruleset = { ...base, pools: [...base.pools, ads], clocks: [...base.clocks, clock] };
+    const sims = simulateAll([a, b], rs, a.anchorMs + 3 * HOUR);
+    const plays = [...sims.values()].flatMap((s) => s.blocks.flatMap((bl) => bl.entries)).filter((e) => e.role === 'commercial')
+      .map((e) => ({ id: e.item.id, at: e.start })).sort((x, y) => x.at - y.at);
+    expect(plays.length).toBeGreaterThan(100);
+    const lastAt = new Map<string, number>();
+    let violations = 0;
+    for (const p of plays) {
+      const prev = lastAt.get(p.id);
+      if (prev != null && p.at - prev < 20 * MIN) violations++;
+      lastAt.set(p.id, p.at);
+    }
+    expect(violations).toBe(0);
+    // And the same setup without the flag does repeat across channels, so the test is meaningful.
+    const rs2: Ruleset = { ...rs, pools: rs.pools.map((p) => (p.id === ads.id ? { ...p, noRepeatAcrossChannels: false } : p)) };
+    const plain = [...simulateAll([a, b], rs2, a.anchorMs + 3 * HOUR).values()].flatMap((s) => s.blocks.flatMap((bl) => bl.entries)).filter((e) => e.role === 'commercial').map((e) => ({ id: e.item.id, at: e.start })).sort((x, y) => x.at - y.at);
+    const seen = new Map<string, number>(); let v2 = 0;
+    for (const p of plain) { const prev = seen.get(p.id); if (prev != null && p.at - prev < 20 * MIN) v2++; seen.set(p.id, p.at); }
+    expect(v2).toBeGreaterThan(0);
+  });
+
+  it('22. live ads: each break becomes one dynamic placeholder Next resolves at playback', () => {
+    const clock = withClock({ breaks: { live: true } });
+    const { sim, rs } = run(clock, [], 2);
+    const playout = toPlayout(sim.blocks.slice(0, 4), { clocks: rs.clocks, dynamic: { baseUrl: 'http://mimic:8787', channelId: retro.id } });
+    const dyn = playout.items.filter((i) => i.source?.source_type === 'dynamic');
+    const breaks = sim.blocks.slice(0, 4).flatMap((b) => b.breaks).filter((k) => k.entries.length > 0);
+    expect(dyn.length).toBe(breaks.length);
+    expect(playout.items.some((i) => i.source?.source_type === 'local')).toBe(true);
+    expect((dyn[0]!.source as { uri: string }).uri).toMatch(/^http:\/\/mimic:8787\/dynamic\/ch-retro\?pool=/);
+    const ajv = new Ajv2020({ strict: false }); addFormats(ajv);
+    expect(ajv.validate(schema, playout)).toBe(true);
+  });
 });

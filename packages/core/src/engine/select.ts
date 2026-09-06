@@ -27,6 +27,8 @@ export class Selector {
     pools: Pool[],
     private rng: Rng,
     private cursors: CursorState,
+    /** Last-played map shared across channels simulated together, for cross-channel no-repeat. */
+    private shared?: Record<string, number>,
   ) {
     this.poolsById = new Map(pools.map((p) => [p.id, p]));
   }
@@ -50,6 +52,7 @@ export class Selector {
   markPlayed(item: MediaItem, at: number) {
     if (item.id === BLACK.id) return;
     this.cursors.lastPlayed[item.id] = at;
+    if (this.shared && item.kind !== 'episode' && item.kind !== 'movie') this.shared[item.id] = Math.max(this.shared[item.id] ?? -Infinity, at);
   }
 
   /**
@@ -141,7 +144,8 @@ export class Selector {
   }
 
   private pickRandom(pool: Pool, items: MediaItem[], now: number): MediaItem {
-    const last = (i: MediaItem) => this.cursors.lastPlayed[i.id] ?? -Infinity;
+    const shared = pool.noRepeatAcrossChannels ? this.shared : undefined;
+    const last = (i: MediaItem) => Math.max(this.cursors.lastPlayed[i.id] ?? -Infinity, shared?.[i.id] ?? -Infinity);
     if (pool.selection === 'shuffle') {
       // Cycle through everything before repeating: choose among the least recently played.
       const sorted = [...items].sort((a, b) => last(a) - last(b));

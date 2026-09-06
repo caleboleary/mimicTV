@@ -22,12 +22,28 @@ interface Ctx {
 
 const isFixed = (d: Daypart) => d.endMinute != null && d.endMinute > d.startMinute;
 
-/** The band in force at `ms`: a fixed show if one covers it, else the latest base band. */
+const mmdd = (ms: number) => { const d = new Date(ms); return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/** Does this band apply on the calendar day containing `ms`? Checks day-of-week and the date window. */
+export function bandActiveOn(d: Daypart, ms: number): boolean {
+  if (d.days && d.days.length > 0 && !d.days.includes(new Date(ms).getDay())) return false;
+  if (d.dates && d.dates.from && d.dates.to) {
+    const today = mmdd(ms);
+    const { from, to } = d.dates;
+    const inside = from <= to ? today >= from && today <= to : today >= from || today <= to; // wraps the year end
+    if (!inside) return false;
+  }
+  return true;
+}
+
+/** The band in force at `ms`: a fixed show if one covers it, else the latest base band active today. */
 export function daypartForTime(channel: Channel, ms: number): Daypart | undefined {
   const minutes = (ms - localMidnight(ms)) / MIN;
-  const fixed = channel.dayparts.find((d) => isFixed(d) && d.startMinute <= minutes && minutes < d.endMinute!);
+  const active = channel.dayparts.filter((d) => bandActiveOn(d, ms));
+  const fixed = active.find((d) => isFixed(d) && d.startMinute <= minutes && minutes < d.endMinute!);
   if (fixed) return fixed;
-  const bases = channel.dayparts.filter((d) => !isFixed(d)).sort((a, b) => a.startMinute - b.startMinute);
+  let bases = active.filter((d) => !isFixed(d)).sort((a, b) => a.startMinute - b.startMinute);
+  if (bases.length === 0) bases = channel.dayparts.filter((d) => !isFixed(d)).sort((a, b) => a.startMinute - b.startMinute); // never go dark
   let chosen = bases[bases.length - 1];
   for (const p of bases) if (p.startMinute <= minutes) chosen = p;
   return chosen;
@@ -49,13 +65,14 @@ export function hardStopAfter(channel: Channel, ms: number): number | undefined 
   if (fixed.length === 0) return undefined;
   const mid = localMidnight(ms);
   const minutes = (ms - mid) / MIN;
-  const current = fixed.find((d) => d.startMinute <= minutes && minutes < d.endMinute!);
+  const current = fixed.find((d) => bandActiveOn(d, ms) && d.startMinute <= minutes && minutes < d.endMinute!);
   if (current) return mid + current.endMinute! * MIN;
   const d = new Date(mid);
   const nextMid = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
   let best: number | undefined;
   for (const f of fixed) {
     const at = f.startMinute > minutes ? mid + f.startMinute * MIN : nextMid + f.startMinute * MIN;
+    if (!bandActiveOn(f, at)) continue;
     if (best == null || at < best) best = at;
   }
   return best;
@@ -120,19 +137,19 @@ function fillBreak(
   ctx: Ctx,
   clock: Clock,
   blockId: string,
-  brk: { index: number; kind: 'mid' | 'post'; afterProgram: boolean; showId?: string },
+  brk: { index: number; kind: 'mid' | 'post'; afterProgram: boolean; showId?: string; fillerOnly?: boolean },
   start: number,
   targetMs: number,
   nextId: () => string,
 ): ScheduledBreak {
   const entries: TimelineEntry[] = [];
   const end = start + targetMs;
-  const nearBoundary =
+  const nearBoundary = !brk.fillerOnly &&
     clock.networkId.enabled && distanceToBoundary(end, clock.networkId.nearMinutes) <= clock.networkId.windowMs;
   const used = new Set<string>();
 
   // Bumpers come out of the budget first: they are short and the point of the break's shape.
-  const bumpers = clock.breaks.bumpers;
+  const bumpers = brk.fillerOnly ? undefined : clock.breaks.bumpers;
   const pickBumper = (poolId: string | undefined, room: number) => {
     if (!poolId || room <= 0) return undefined;
     const b = ctx.selector.pickInterstitial(poolId, start, room, used);
@@ -153,7 +170,7 @@ function fillBreak(
   }
   const idMs = idItem ? idItem.durationMs : 0;
   const budget = room - idMs;
-  const adPoolId = adPoolFor(clock.breaks, brk.showId);
+  const adPoolId = brk.fillerOnly ? '' : adPoolFor(clock.breaks, brk.showId);
 
   // Commercials first.
   const ads: MediaItem[] = [];
@@ -230,7 +247,7 @@ function fillBreak(
   }
   bumper(bumperOut, 'Bumper out of the break');
 
-  return { index: brk.index, kind: brk.kind, start, end, targetMs, nearBoundary, entries };
+  return { index: brk.index, kind: brk.kind, adPoolId: adPoolId || undefined, start, end, targetMs, nearBoundary, entries };
 }
 
 export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: number, hardStop?: number): ScheduledBlock {
@@ -244,7 +261,7 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
   const programs: { item: MediaItem; reason: string }[] = [];
   let contentMs = 0;
   const { targetMs, toleranceMs, allowMultiple } = clock.program;
-  while (programs.length < MAX_PROGRAMS_PER_BLOCK) {
+  while (!clock.offAir && programs.length < MAX_PROGRAMS_PER_BLOCK) {
     // The first program is unconstrained (unless a fixed show is near); extra programs must fit the remaining budget.
     let maxMs = programs.length === 0 ? undefined : targetMs + toleranceMs - contentMs;
     if (room != null) maxMs = Math.min(maxMs ?? Infinity, room - contentMs);
@@ -257,7 +274,7 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
   if (programs.length === 0) {
     // Nothing fits (empty pool, or a fixed show is too close): pad until the next stop so the channel keeps moving.
     const end = room != null && room > 0 ? hardStop! : start + Math.max(clock.pad.toMinutes, 30) * MIN;
-    const brk = fillBreak(ctx, clock, blockId, { index: 0, kind: 'post', afterProgram: false }, start, end - start, nextId);
+    const brk = fillBreak(ctx, clock, blockId, { index: 0, kind: 'post', afterProgram: false, fillerOnly: !!clock.offAir }, start, end - start, nextId);
     return { id: blockId, clockId: clock.id, start, end, programs: [], breaks: [brk], entries: brk.entries, contentMs: 0, breakBudgetMs: end - start };
   }
 
@@ -338,7 +355,34 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
 }
 
 export function freshCursors(channel: Channel): CursorState {
-  return { showNext: {}, poolNext: {}, lastPlayed: {}, asOf: channel.anchorMs };
+  return { showNext: { ...(channel.cursorSeeds ?? {}) }, poolNext: {}, lastPlayed: {}, asOf: channel.anchorMs };
+}
+
+/**
+ * Advance a channel's timeline until it covers `untilMs`. Pass a prior Simulation
+ * (built from the same rules) to resume instead of starting from the anchor.
+ */
+interface Run { channel: Channel; ctx: Ctx; blocks: ScheduledBlock[]; rng: Rng }
+
+function startRun(channel: Channel, ruleset: Ruleset, prior?: Simulation, shared?: Record<string, number>): Run {
+  const cursors: CursorState = prior ? structuredClone(prior.cursors) : freshCursors(channel);
+  const rng = rngFor(channel.seed, cursors.rngState);
+  const clocksById = new Map(ruleset.clocks.map((c) => [c.id, c]));
+  const selector = new Selector(ruleset.library, ruleset.pools, rng, cursors, shared);
+  return { channel, ctx: { channel, ruleset, rng, cursors, selector, clocksById }, blocks: prior ? [...prior.blocks] : [], rng };
+}
+
+function stepRun(run: Run): void {
+  const { channel, ctx, blocks } = run;
+  const clock = clockForTime(channel, ctx.clocksById, ctx.cursors.asOf);
+  const block = buildBlock(ctx, clock, ctx.cursors.asOf, blocks.length, hardStopAfter(channel, ctx.cursors.asOf));
+  blocks.push(block);
+  ctx.cursors.asOf = block.end;
+}
+
+function finishRun(run: Run): Simulation {
+  run.ctx.cursors.rngState = run.rng.state();
+  return { channelId: run.channel.id, blocks: run.blocks, cursors: run.ctx.cursors };
 }
 
 /**
@@ -346,24 +390,49 @@ export function freshCursors(channel: Channel): CursorState {
  * (built from the same rules) to resume instead of starting from the anchor.
  */
 export function simulate(channel: Channel, ruleset: Ruleset, untilMs: number, prior?: Simulation): Simulation {
-  const cursors: CursorState = prior
-    ? structuredClone(prior.cursors)
-    : freshCursors(channel);
-  const rng = rngFor(channel.seed, cursors.rngState);
-  const clocksById = new Map(ruleset.clocks.map((c) => [c.id, c]));
-  const selector = new Selector(ruleset.library, ruleset.pools, rng, cursors);
-  const ctx: Ctx = { channel, ruleset, rng, cursors, selector, clocksById };
-  const blocks = prior ? [...prior.blocks] : [];
-
+  const run = startRun(channel, ruleset, prior);
   let guard = 0;
-  while (cursors.asOf < untilMs && guard++ < MAX_BLOCKS_PER_RUN) {
-    const clock = clockForTime(channel, clocksById, cursors.asOf);
-    const block = buildBlock(ctx, clock, cursors.asOf, blocks.length, hardStopAfter(channel, cursors.asOf));
-    blocks.push(block);
-    cursors.asOf = block.end;
+  while (run.ctx.cursors.asOf < untilMs && guard++ < MAX_BLOCKS_PER_RUN) stepRun(run);
+  return finishRun(run);
+}
+
+/** A mirror channel is its source shifted later by `shiftMinutes`. Ids are re-prefixed so files stay unique. */
+export function shiftSimulation(source: Simulation, mirror: Channel): Simulation {
+  const by = (mirror.shiftMinutes ?? 0) * MIN;
+  const prefix = (id: string) => id.replace(source.channelId, mirror.id);
+  const blocks = source.blocks.map((b) => ({
+    ...b, id: prefix(b.id), start: b.start + by, end: b.end + by,
+    breaks: b.breaks.map((k) => ({ ...k, start: k.start + by, end: k.end + by, entries: k.entries.map((e) => ({ ...e, id: prefix(e.id), blockId: prefix(e.blockId), start: e.start + by, end: e.end + by })) })),
+    entries: b.entries.map((e) => ({ ...e, id: prefix(e.id), blockId: prefix(e.blockId), start: e.start + by, end: e.end + by })),
+  }));
+  return { channelId: mirror.id, blocks, cursors: { ...source.cursors, asOf: source.cursors.asOf + by } };
+}
+
+/**
+ * Simulate several channels together, in time order, so pools flagged `noRepeatAcrossChannels`
+ * see each other's plays. Mirrors are derived from their source afterwards.
+ */
+export function simulateAll(channels: Channel[], ruleset: Ruleset, untilMs: number): Map<string, Simulation> {
+  const shared: Record<string, number> = {};
+  const byId = new Map(channels.map((c) => [c.id, c]));
+  const sources = channels.filter((c) => !c.mirrorOf || !byId.has(c.mirrorOf));
+  const runs = sources.map((c) => startRun(c, ruleset, undefined, shared));
+  let guard = 0;
+  for (;;) {
+    let next: Run | undefined;
+    for (const r of runs) if (r.ctx.cursors.asOf < untilMs && (!next || r.ctx.cursors.asOf < next.ctx.cursors.asOf)) next = r;
+    if (!next || guard++ > MAX_BLOCKS_PER_RUN * runs.length) break;
+    stepRun(next);
   }
-  cursors.rngState = rng.state();
-  return { channelId: channel.id, blocks, cursors };
+  const out = new Map<string, Simulation>();
+  for (const r of runs) out.set(r.channel.id, finishRun(r));
+  for (const c of channels) {
+    if (c.mirrorOf && byId.has(c.mirrorOf)) {
+      const src = out.get(c.mirrorOf);
+      if (src) out.set(c.id, shiftSimulation(src, c));
+    }
+  }
+  return out;
 }
 
 export function blocksInWindow(sim: Simulation, start: number, end: number): ScheduledBlock[] {

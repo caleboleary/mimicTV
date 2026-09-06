@@ -6,7 +6,8 @@ export const PLAYOUT_SCHEMA_VERSION = 'https://ersatztv.org/playout/version/0.0.
 
 type Source =
   | { source_type: 'local'; path: string; in_point_ms?: number; out_point_ms?: number }
-  | { source_type: 'lavfi'; params: string };
+  | { source_type: 'lavfi'; params: string }
+  | { source_type: 'dynamic'; uri: string; timeout_us?: number };
 
 interface GraphicsLayer {
   source: Source;
@@ -37,6 +38,11 @@ export interface EmitOptions {
   generatedAt?: number;
   /** Rewrite library paths for the machine running Next, e.g. /media -> /mnt/user/media. */
   pathMap?: (p: string) => string;
+  /**
+   * When set, breaks on clocks flagged `breaks.live` are written as one `dynamic` placeholder
+   * each, pointing at mimicTV's resolver, instead of the pre-picked items.
+   */
+  dynamic?: { baseUrl: string; channelId: string };
 }
 
 export function toPlayout(blocks: ScheduledBlock[], opts: EmitOptions): PlayoutFile {
@@ -45,8 +51,23 @@ export function toPlayout(blocks: ScheduledBlock[], opts: EmitOptions): PlayoutF
   const items: PlayoutItem[] = [];
 
   for (const block of blocks) {
-    const bug = clocks.get(block.clockId)?.bug;
+    const clock = clocks.get(block.clockId);
+    const bug = clock?.bug;
+    const live = !!opts.dynamic && !!clock?.breaks.live;
+    const liveBreaks = live ? new Set(block.breaks.filter((k) => k.entries.length > 0).map((k) => k.index)) : new Set<number>();
+    const emittedBreaks = new Set<number>();
     for (const e of block.entries) {
+      if (e.role !== 'program' && e.breakIndex != null && liveBreaks.has(e.breakIndex)) {
+        if (emittedBreaks.has(e.breakIndex)) continue;
+        emittedBreaks.add(e.breakIndex);
+        const k = block.breaks.find((b) => b.index === e.breakIndex)!;
+        const q = new URLSearchParams({ pool: k.adPoolId ?? clock!.breaks.poolId, filler: clock!.pad.poolId, ids: clock!.networkId.enabled ? clock!.networkId.poolId : '' });
+        items.push({
+          id: `${block.id}-live${k.index}`, start: toRfc3339Local(k.start), finish: toRfc3339Local(k.end),
+          source: { source_type: 'dynamic', uri: `${opts.dynamic!.baseUrl.replace(/\/$/, '')}/dynamic/${encodeURIComponent(opts.dynamic!.channelId)}?${q}` },
+        });
+        continue;
+      }
       const durationMs = e.end - e.start;
       const item: PlayoutItem = { id: e.id, start: toRfc3339Local(e.start), finish: toRfc3339Local(e.end) };
 
