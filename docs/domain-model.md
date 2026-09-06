@@ -33,7 +33,7 @@ A block is one instance of a clock: programs, segments, breaks, and the entries 
 
 ## Channels
 
-Number, name, `tvg_id`, logo, group, and **dayparts**: a sorted list of (minute-of-day, clock). The last daypart wraps past midnight. A channel also carries an **anchor** (when its timeline began) and a **seed**. Duplicating a channel copies everything and gives it a new seed.
+Number, name, `tvg_id`, logo, group, and **dayparts**: a sorted list of (minute-of-day, clock). The last daypart wraps past midnight. A daypart with an `endMinute` is a **fixed show**: it takes over for exactly that window every day and the base band resumes after. The engine treats its start and end as hard stops, so the block before it picks programs that fit and pads the remainder rather than running over. A channel also carries an **anchor** (when its timeline began) and a **seed**. Duplicating a channel copies everything and gives it a new seed.
 
 ## Cursors
 

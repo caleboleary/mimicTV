@@ -160,6 +160,12 @@ export interface Clock {
 export interface Daypart {
   /** Minutes from local midnight. */
   startMinute: number;
+  /**
+   * Set for a fixed show (an appointment): the band runs only until this minute, then whatever
+   * band was running resumes. Blocks around it are clamped so it starts exactly on time.
+   * Unset = a base band that runs until the next base band starts.
+   */
+  endMinute?: number;
   clockId: string;
 }
 

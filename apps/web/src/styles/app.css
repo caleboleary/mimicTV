@@ -173,6 +173,7 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 .bands { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .band { border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; background: transparent; font-size: 12.5px; }
 .band.on { border-color: var(--accent); color: var(--accent); }
+.band.fixed { border-style: dashed; }
 .pool-mode { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .shared-note { background: var(--panel-2); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .ident { display: flex; gap: 10px; align-items: center; }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { poolItems, fmtClock, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
+import { poolItems, fmtClock, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
 import { useStore } from '../store/store';
 import { useRuleset, useSim } from '../store/useSim';
 import { exportDay } from '../export';
@@ -18,6 +18,7 @@ const HELP = {
     <>
       <p><b>When each format runs.</b> By default one format covers the whole day. Add a time band to change things at a certain hour: cartoons in the morning, dramas at night.</p>
       <p>Each band has its own shows, format, and breaks. Pick a band here and the sections below edit that band. The last band of the day runs until the first one starts again.</p>
+      <p>A <b>fixed show</b> is an appointment: "The Simpsons at 6pm". It plays at its time every day, the shows around it make room, and the day resumes afterwards.</p>
     </>
   ),
   shows: (
@@ -46,6 +47,16 @@ const HELP = {
     </>
   ),
 };
+
+const minuteLabel = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const timeValue = (m: number) => minuteLabel(Math.min(m, 23 * 60 + 59));
+const parseMinute = (v: string): number | undefined => { const [h, m] = v.split(':').map(Number); return Number.isFinite(h) && Number.isFinite(m) ? h! * 60 + m! : undefined; };
+
+function scheduleSummary(parts: Channel['dayparts']): string {
+  const bands = parts.filter((d) => d.endMinute == null).length;
+  const fixed = parts.length - bands;
+  return [bands <= 1 ? 'all day' : `${bands} bands`, fixed > 0 ? `${fixed} fixed show${fixed === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+}
 
 function breakSummary(c: Clock): string {
   const fb = c.breaks.fallback;
@@ -136,6 +147,7 @@ export default function ChannelEditorPage() {
   const updateClock = useStore((s) => s.updateClock);
   const addClock = useStore((s) => s.addClock);
   const addBand = useStore((s) => s.addBand);
+  const addFixedShow = useStore((s) => s.addFixedShow);
   const removeBand = useStore((s) => s.removeBand);
   const duplicateChannel = useStore((s) => s.duplicateChannel);
   const removeChannel = useStore((s) => s.removeChannel);
@@ -163,6 +175,13 @@ export default function ChannelEditorPage() {
     addClock(copy);
     updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((d) => (d.clockId === band.clockId ? { ...d, clockId: copy.id } : d)) }));
   };
+  const fixedShowName = (clockId: string) => {
+    const p = pools.find((x) => x.id === clocks.find((c) => c.id === clockId)?.program.poolId);
+    const ids = p?.filter.showIds ?? [];
+    if (ids.length === 0) return undefined;
+    const first = library.shows.find((s) => s.id === ids[0])?.title ?? ids[0];
+    return ids.length > 1 ? `${first} +${ids.length - 1}` : first;
+  };
   const showCount = programPool ? (programPool.filter.showIds?.length || new Set(poolItems(programPool, library).map((i) => i.showId)).size) : 0;
   const onSelectBlock = (b: ScheduledBlock) => setSelected((cur) => (cur === b.id ? undefined : b.id));
 
@@ -180,26 +199,44 @@ export default function ChannelEditorPage() {
             <input className="name" type="text" value={channel.name} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, name: e.target.value }))} />
           </div>
 
-          <Card title="Schedule" help={HELP.schedule} summary={channel.dayparts.length === 1 ? 'all day' : `${channel.dayparts.length} bands`} open={channel.dayparts.length > 1}>
+          <Card title="Schedule" help={HELP.schedule} summary={scheduleSummary(channel.dayparts)} open={channel.dayparts.length > 1}>
             <div className="bands">
-              {channel.dayparts.map((d, i) => (
-                <button key={i} className={`band${band === d ? ' on' : ''}`} onClick={() => setBandIdx(i)}>
-                  {channel.dayparts.length === 1 ? 'All day' : `${fmtClock(new Date(2000, 0, 1, Math.floor(d.startMinute / 60), d.startMinute % 60).getTime())} · ${clocks.find((c) => c.id === d.clockId)?.name ?? '?'}`}
-                </button>
-              ))}
+              {channel.dayparts.map((d, i) => {
+                const fixed = d.endMinute != null;
+                const showName = fixed ? fixedShowName(d.clockId) : undefined;
+                return (
+                  <button key={i} className={`band${band === d ? ' on' : ''}${fixed ? ' fixed' : ''}`} onClick={() => setBandIdx(i)} title={fixed ? 'Fixed show: plays at this time, then the day resumes' : 'Time band'}>
+                    {fixed ? `📌 ${minuteLabel(d.startMinute)}–${minuteLabel(d.endMinute!)} · ${showName ?? 'pick a show'}`
+                      : channel.dayparts.filter((x) => x.endMinute == null).length === 1 ? 'All day'
+                      : `${minuteLabel(d.startMinute)} · ${clocks.find((c) => c.id === d.clockId)?.name ?? '?'}`}
+                  </button>
+                );
+              })}
               <button className="btn sm" onClick={() => clock && addBand(channel.id, 20 * 60, clock.id)}>+ time band</button>
+              <button className="btn sm" onClick={() => clock && addFixedShow(channel.id, 18 * 60, 30, clock.id)}>+ fixed show</button>
             </div>
-            {channel.dayparts.length > 1 && band && clock && (
+            {band && clock && (band.endMinute != null || channel.dayparts.length > 1) && (
               <div className="toolbar" style={{ marginTop: 10, marginBottom: 0 }}>
-                <label className="field">Starts at
-                  <input type="number" min={0} max={23} value={Math.floor(band.startMinute / 60)} onChange={(e) => { const h = Number(e.target.value); updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((d) => (d === band ? { ...d, startMinute: h * 60 } : d)).sort((a, b) => a.startMinute - b.startMinute) })); }} />
+                <label className="field">{band.endMinute != null ? 'Plays at' : 'Starts at'}
+                  <input type="time" step={900} value={timeValue(band.startMinute)} onChange={(e) => { const m = parseMinute(e.target.value); if (m == null) return; updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((d) => (d === band ? { ...d, startMinute: m, endMinute: d.endMinute != null ? Math.min(24 * 60, m + (d.endMinute - d.startMinute)) : undefined } : d)).sort((a, b) => a.startMinute - b.startMinute) })); }} />
                 </label>
-                <label className="field">Band name<input type="text" value={clock.name} onChange={(e) => setClock((c) => ({ ...c, name: e.target.value }))} /></label>
+                {band.endMinute != null && (
+                  <label className="field">For
+                    <select value={band.endMinute - band.startMinute} onChange={(e) => { const len = Number(e.target.value); updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((d) => (d === band ? { ...d, endMinute: Math.min(24 * 60, d.startMinute + len) } : d)) })); }}>
+                      {[30, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60} hour${m > 60 ? 's' : ''}`}</option>)}
+                    </select>
+                  </label>
+                )}
+                {band.endMinute == null && <label className="field">Band name<input type="text" value={clock.name} onChange={(e) => setClock((c) => ({ ...c, name: e.target.value }))} /></label>}
                 <div className="grow" />
-                <button className="btn sm danger" onClick={() => { removeBand(channel.id, channel.dayparts.indexOf(band)); setBandIdx(0); }}>Remove band</button>
+                <button className="btn sm danger" onClick={() => { removeBand(channel.id, channel.dayparts.indexOf(band)); setBandIdx(0); }}>{band.endMinute != null ? 'Remove fixed show' : 'Remove band'}</button>
               </div>
             )}
-            <p className="muted small" style={{ marginBottom: 0 }}>Each band runs its own format and shows until the next band starts. The sections below edit the selected band.</p>
+            <p className="muted small" style={{ marginBottom: 0 }}>
+              {band?.endMinute != null
+                ? 'A fixed show plays at its time every day, then the day picks up where it left off. Choose the show in the Shows section below.'
+                : 'Each band runs its own format and shows until the next band starts. The sections below edit the selected band.'}
+            </p>
           </Card>
 
           {clock ? (

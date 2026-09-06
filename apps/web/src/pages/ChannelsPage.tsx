@@ -44,11 +44,17 @@ export default function ChannelsPage() {
         {sorted.map((ch) => {
           const sim = sims.get(ch.id);
           const blocks = sim ? blocksInWindow(sim, dayStart, dayStart + DAY) : [];
+          const label = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+          const multi = ch.dayparts.filter((d) => d.endMinute == null).length > 1;
           const bands = ch.dayparts.map((d) => {
             const c = clocks.find((x) => x.id === d.clockId);
             const p = pools.find((x) => x.id === c?.program.poolId);
+            if (d.endMinute != null) {
+              const first = p?.filter.showIds?.[0];
+              return `📌 ${label(d.startMinute)} ${first ? (library.shows.find((s) => s.id === first)?.title ?? first) : 'fixed show'}`;
+            }
             const shows = p ? (p.filter.showIds?.length || new Set(poolItems(p, library).map((i) => i.showId)).size) : 0;
-            return `${ch.dayparts.length > 1 ? String(Math.floor(d.startMinute / 60)).padStart(2, '0') + ':00 ' : ''}${shows} shows · ${c ? Math.round(c.program.targetMs / 60000) : '?'} min`;
+            return `${multi ? label(d.startMinute) + ' ' : ''}${shows} shows · ${c ? Math.round(c.program.targetMs / 60000) : '?'} min`;
           });
           return (
             <div className="panel" key={ch.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/channels/${ch.id}`)}>

@@ -157,7 +157,37 @@ describe('scenario table', () => {
   });
   it.todo('15b. per-show override of the commercial pool (ads follow the show, not the channel)');
 
-  it.todo('16. time-anchored slot: a specific show at 18:00 every day regardless of the flow (needs slot lists)');
+  describe('16. a fixed show at 18:00 every day, whatever else is on', () => {
+    const simpsons = showPool('pool-fixed', ['parkside']);
+    const fixedClock: Clock = { ...sitcomClock, id: 'clock-fixed', program: { ...sitcomClock.program, poolId: simpsons.id } };
+    const at = (day: number, h: number, m = 0) => new Date(2026, 8, 1 + day, h, m).getTime();
+
+    it('plays that show at 18:00 and hands back afterwards', () => {
+      const ch: Channel = { ...retro, dayparts: [{ startMinute: 0, clockId: sitcomClock.id }, { startMinute: 18 * 60, endMinute: 18 * 60 + 30, clockId: fixedClock.id }] };
+      const rs: Ruleset = { ...base, pools: [...base.pools, simpsons], clocks: [...base.clocks, fixedClock] };
+      const sim = simulate(ch, rs, ch.anchorMs + 3 * DAY);
+      for (const day of [0, 1, 2]) {
+        const b = sim.blocks.find((x) => x.start === at(day, 18))!;
+        expect(b).toBeDefined();
+        expect(b.clockId).toBe('clock-fixed');
+        expect(b.end).toBe(at(day, 18, 30));
+        expect(b.programs.every((e) => e.showId === 'parkside')).toBe(true);
+        expect(sim.blocks.find((x) => x.start === at(day, 18, 30))!.clockId).toBe(sitcomClock.id);
+      }
+    });
+
+    it('clamps the block before it, even when the base format pads to the hour', () => {
+      const drama = base.clocks.find((c) => c.id === 'clock-drama-60')!;
+      const ch: Channel = { ...retro, dayparts: [{ startMinute: 0, clockId: drama.id }, { startMinute: 18 * 60 + 30, endMinute: 19 * 60, clockId: fixedClock.id }] };
+      const rs: Ruleset = { ...base, pools: [...base.pools, simpsons], clocks: [...base.clocks, fixedClock] };
+      const sim = simulate(ch, rs, ch.anchorMs + DAY);
+      const before = sim.blocks.find((x) => x.start < at(0, 18, 30) && x.end > at(0, 18))!;
+      expect(before.end).toBe(at(0, 18, 30)); // a 44-min drama can't fit in 18:00-18:30, so the gap is padded
+      expect(before.entries.every((e) => e.role !== 'program')).toBe(true);
+      expect(sim.blocks.find((x) => x.start === at(0, 18, 30))!.clockId).toBe('clock-fixed');
+      expect(sim.blocks.find((x) => x.start === at(0, 19))!.clockId).toBe(drama.id);
+    });
+  });
   it.todo('17. Saturday-morning-only band (needs day-of-week on dayparts)');
   it.todo('18. holiday specials only in December (needs date windows on pools)');
   it.todo('19. east/west feeds: same channel shifted 3h (needs a channel time offset)');

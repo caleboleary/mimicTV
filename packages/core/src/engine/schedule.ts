@@ -1,5 +1,5 @@
 import type {
-  Channel, Clock, CursorState, MediaItem, Ruleset, ScheduledBlock, ScheduledBreak, Simulation, TimelineEntry,
+  Channel, Clock, CursorState, Daypart, MediaItem, Ruleset, ScheduledBlock, ScheduledBreak, Simulation, TimelineEntry,
 } from '../types';
 import { rngFor, type Rng } from '../rng';
 import { MIN, SEC, ceilToMinutes, distanceToBoundary, fmtClock, localMidnight } from '../time';
@@ -20,14 +20,45 @@ interface Ctx {
   clocksById: Map<string, Clock>;
 }
 
-export function clockForTime(channel: Channel, clocks: Map<string, Clock>, ms: number): Clock {
+const isFixed = (d: Daypart) => d.endMinute != null && d.endMinute > d.startMinute;
+
+/** The band in force at `ms`: a fixed show if one covers it, else the latest base band. */
+export function daypartForTime(channel: Channel, ms: number): Daypart | undefined {
   const minutes = (ms - localMidnight(ms)) / MIN;
-  const parts = [...channel.dayparts].sort((a, b) => a.startMinute - b.startMinute);
-  let chosen = parts[parts.length - 1];
-  for (const p of parts) if (p.startMinute <= minutes) chosen = p;
+  const fixed = channel.dayparts.find((d) => isFixed(d) && d.startMinute <= minutes && minutes < d.endMinute!);
+  if (fixed) return fixed;
+  const bases = channel.dayparts.filter((d) => !isFixed(d)).sort((a, b) => a.startMinute - b.startMinute);
+  let chosen = bases[bases.length - 1];
+  for (const p of bases) if (p.startMinute <= minutes) chosen = p;
+  return chosen;
+}
+
+export function clockForTime(channel: Channel, clocks: Map<string, Clock>, ms: number): Clock {
+  const chosen = daypartForTime(channel, ms);
   const clock = chosen ? clocks.get(chosen.clockId) : undefined;
   if (!clock) throw new Error(`Channel ${channel.id} has no usable clock at ${fmtClock(ms)}`);
   return clock;
+}
+
+/**
+ * The next moment a block starting at `ms` must not run past: the end of the fixed show in
+ * force, or the start of the next fixed show. Undefined when the channel has none.
+ */
+export function hardStopAfter(channel: Channel, ms: number): number | undefined {
+  const fixed = channel.dayparts.filter(isFixed);
+  if (fixed.length === 0) return undefined;
+  const mid = localMidnight(ms);
+  const minutes = (ms - mid) / MIN;
+  const current = fixed.find((d) => d.startMinute <= minutes && minutes < d.endMinute!);
+  if (current) return mid + current.endMinute! * MIN;
+  const d = new Date(mid);
+  const nextMid = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+  let best: number | undefined;
+  for (const f of fixed) {
+    const at = f.startMinute > minutes ? mid + f.startMinute * MIN : nextMid + f.startMinute * MIN;
+    if (best == null || at < best) best = at;
+  }
+  return best;
 }
 
 interface Segment {
@@ -166,18 +197,21 @@ function fillBreak(
   return { index: brk.index, kind: brk.kind, start, end, targetMs, nearBoundary, entries };
 }
 
-export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: number): ScheduledBlock {
+export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: number, hardStop?: number): ScheduledBlock {
   const blockId = `${ctx.channel.id}-b${blockIndex}`;
   let n = 0;
   const nextId = () => `${blockId}-${++n}`;
+  // Room left before a fixed show must start (or the current one must end).
+  const room = hardStop != null ? hardStop - start : undefined;
 
   // 1. Pull programs until the content target is met.
   const programs: { item: MediaItem; reason: string }[] = [];
   let contentMs = 0;
   const { targetMs, toleranceMs, allowMultiple } = clock.program;
   while (programs.length < MAX_PROGRAMS_PER_BLOCK) {
-    // The first program is unconstrained; extra programs must fit the remaining budget.
-    const maxMs = programs.length === 0 ? undefined : targetMs + toleranceMs - contentMs;
+    // The first program is unconstrained (unless a fixed show is near); extra programs must fit the remaining budget.
+    let maxMs = programs.length === 0 ? undefined : targetMs + toleranceMs - contentMs;
+    if (room != null) maxMs = Math.min(maxMs ?? Infinity, room - contentMs);
     const pick = ctx.selector.pickProgram(clock.program.poolId, start, maxMs);
     if (!pick) break;
     programs.push(pick);
@@ -185,8 +219,8 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
     if (!allowMultiple || contentMs >= targetMs - toleranceMs) break;
   }
   if (programs.length === 0) {
-    // Empty pool: emit one padded block so the channel keeps moving.
-    const end = start + Math.max(clock.pad.toMinutes, 30) * MIN;
+    // Nothing fits (empty pool, or a fixed show is too close): pad until the next stop so the channel keeps moving.
+    const end = room != null && room > 0 ? hardStop! : start + Math.max(clock.pad.toMinutes, 30) * MIN;
     const brk = fillBreak(ctx, clock, blockId, { index: 0, kind: 'post' }, start, end - start, nextId);
     return { id: blockId, clockId: clock.id, start, end, programs: [], breaks: [brk], entries: brk.entries, contentMs: 0, breakBudgetMs: end - start };
   }
@@ -215,6 +249,8 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
   } else {
     end = start + contentMs;
   }
+  // Never run into a fixed show. Programs were picked to fit, so only the padding gives way.
+  if (hardStop != null && end > hardStop && hardStop >= start + contentMs) end = hardStop;
   const budget = end - start - contentMs;
 
   // 4. Distribute the budget across breaks.
@@ -286,7 +322,7 @@ export function simulate(channel: Channel, ruleset: Ruleset, untilMs: number, pr
   let guard = 0;
   while (cursors.asOf < untilMs && guard++ < MAX_BLOCKS_PER_RUN) {
     const clock = clockForTime(channel, clocksById, cursors.asOf);
-    const block = buildBlock(ctx, clock, cursors.asOf, blocks.length);
+    const block = buildBlock(ctx, clock, cursors.asOf, blocks.length, hardStopAfter(channel, cursors.asOf));
     blocks.push(block);
     cursors.asOf = block.end;
   }

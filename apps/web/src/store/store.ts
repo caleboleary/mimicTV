@@ -44,6 +44,8 @@ interface State {
   /** Add a time band to a channel: a new owned clock copied from `fromClockId`. */
   addBand(channelId: string, startMinute: number, fromClockId: string): void;
   removeBand(channelId: string, index: number): void;
+  /** Add a fixed show: a band with an end time, its own (empty) show list, and a copy of `fromClockId` as format. */
+  addFixedShow(channelId: string, startMinute: number, durationMin: number, fromClockId: string): void;
   /** Turn an inline pool into a shared collection. */
   promotePool(poolId: string, name: string): void;
   /** Copy a shared pool into a channel as a private pool and return the copy's id. */
@@ -171,14 +173,40 @@ export const useStore = create<State>()(
         });
       },
 
+      addFixedShow: (channelId, startMinute, durationMin, fromClockId) => {
+        const s = get();
+        const from = s.clocks.find((c) => c.id === fromClockId);
+        const ch = s.channels.find((c) => c.id === channelId);
+        if (!from || !ch) return;
+        const label = `${String(Math.floor(startMinute / 60)).padStart(2, '0')}:${String(startMinute % 60).padStart(2, '0')}`;
+        const pool: Pool = {
+          id: uid('pool-fixed'), ownerChannelId: channelId, name: `Fixed show at ${label}`,
+          filter: { kinds: ['episode'], showIds: [], excludeTags: ['unnumbered', 'special', 'extra'], minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS },
+          selection: 'shows-shuffled-episodes-in-order',
+        };
+        const clock: Clock = { ...structuredClone(from), id: uid('clock'), ownerChannelId: channelId, name: `Fixed show ${label}`, program: { ...from.program, poolId: pool.id } };
+        const endMinute = Math.min(24 * 60, startMinute + durationMin);
+        set({
+          pools: [...s.pools, pool],
+          clocks: [...s.clocks, clock],
+          channels: s.channels.map((c) => c.id === channelId ? { ...c, dayparts: [...c.dayparts, { startMinute, endMinute, clockId: clock.id }].sort((a, b) => a.startMinute - b.startMinute) } : c),
+        });
+      },
+
       removeBand: (channelId, index) => set((s) => {
         const ch = s.channels.find((c) => c.id === channelId);
         if (!ch || ch.dayparts.length <= 1) return {};
         const removed = ch.dayparts[index];
         const stillUsed = ch.dayparts.some((d, i) => i !== index && d.clockId === removed?.clockId);
+        const clock = s.clocks.find((c) => c.id === removed?.clockId);
+        const dropClock = !stillUsed && clock?.ownerChannelId === channelId;
+        // A fixed show's private show list goes with it when no other band uses it.
+        const poolStillUsed = (pid: string) => s.clocks.some((c) => c.id !== clock?.id && c.program.poolId === pid);
+        const dropPool = dropClock && clock && s.pools.find((p) => p.id === clock.program.poolId)?.ownerChannelId === channelId && !poolStillUsed(clock.program.poolId) ? clock.program.poolId : undefined;
         return {
           channels: s.channels.map((c) => c.id === channelId ? { ...c, dayparts: c.dayparts.filter((_, i) => i !== index) } : c),
-          clocks: stillUsed ? s.clocks : s.clocks.filter((c) => !(c.id === removed?.clockId && c.ownerChannelId === channelId)),
+          clocks: dropClock ? s.clocks.filter((c) => c.id !== clock!.id) : s.clocks,
+          pools: dropPool ? s.pools.filter((p) => p.id !== dropPool) : s.pools,
         };
       }),
 
