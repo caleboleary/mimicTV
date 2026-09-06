@@ -19,6 +19,9 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [state, setState] = useState<State>('tuning');
   const [copied, setCopied] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -27,7 +30,9 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
     // Autoplay with sound needs a user gesture; ours may have expired by the time the stream is up. Fall back to muted.
     const play = () => video.play().catch(() => { video.muted = true; video.play().then(() => setState('muted')).catch(() => {}); });
     const onPlaying = () => setState((s) => (s === 'muted' ? s : 'playing'));
+    const onVolume = () => { setMuted(video.muted); setVolume(video.volume); };
     video.addEventListener('playing', onPlaying);
+    video.addEventListener('volumechange', onVolume);
     let hls: Hls | undefined;
     if (Hls.isSupported()) {
       hls = new Hls({
@@ -50,7 +55,7 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
     } else {
       setState('error');
     }
-    return () => { video.removeEventListener('playing', onPlaying); hls?.destroy(); video.removeAttribute('src'); };
+    return () => { video.removeEventListener('playing', onPlaying); video.removeEventListener('volumechange', onVolume); hls?.destroy(); video.removeAttribute('src'); };
   }, [src]);
 
   useEffect(() => {
@@ -60,6 +65,9 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
   }, [onClose]);
 
   const unmute = () => { const v = videoRef.current; if (v) { v.muted = false; setState('playing'); } };
+  const toggleMute = () => { const v = videoRef.current; if (v) v.muted = !v.muted; };
+  const setVol = (n: number) => { const v = videoRef.current; if (v) { v.volume = n; v.muted = n === 0; } };
+  const fullscreen = () => { const el = bodyRef.current; if (!el) return; if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen?.(); };
   return (
     <div className="player-backdrop" onClick={onClose}>
       <div className="player" onClick={(e) => e.stopPropagation()}>
@@ -71,11 +79,19 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
           <button className="btn sm" title={src} onClick={async () => { if (await copyText(src)) { setCopied(true); setTimeout(() => setCopied(false), 1500); } }}>{copied ? 'copied ✓' : 'copy stream link'}</button>
           <button className="btn sm" onClick={onClose}>✕</button>
         </div>
-        <div className="player-body">
-          <video ref={videoRef} controls playsInline />
+        <div className="player-body" ref={bodyRef}>
+          {/* Live TV: no native controls. The timeline would only grow as segments arrive and pause makes no sense; just sound and fullscreen. */}
+          <video ref={videoRef} playsInline onContextMenu={(e) => e.preventDefault()} />
           {state === 'tuning' && <div className="player-overlay"><div className="spinner" />Tuning in… Next starts transcoding on the first viewer, so this can take 10–20 seconds.</div>}
           {state === 'muted' && <button className="player-overlay unmute" onClick={unmute}>🔇 playing muted · click for sound</button>}
           {state === 'error' && <div className="player-overlay">Couldn't play <code>{src}</code>. Is Next running at {base}, and is that address reachable from this browser?</div>}
+          <div className="player-bar">
+            <button title={muted ? 'Unmute' : 'Mute'} onClick={toggleMute}>{muted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}</button>
+            <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} onChange={(e) => setVol(Number(e.target.value))} title="Volume" />
+            <span className="live"><i />LIVE</span>
+            <div className="grow" />
+            <button title="Fullscreen" onClick={fullscreen}>⛶</button>
+          </div>
         </div>
       </div>
     </div>

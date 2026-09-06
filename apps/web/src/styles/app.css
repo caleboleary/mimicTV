@@ -272,3 +272,11 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 .player-overlay.unmute { pointer-events: auto; cursor: pointer; border: 0; background: transparent; color: var(--text); font-size: 14px; }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.player-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); opacity: 0; transition: opacity 0.15s; }
+.player-body:hover .player-bar, .player-body:fullscreen .player-bar:hover { opacity: 1; }
+.player-bar button { background: transparent; border: 0; color: #fff; font-size: 16px; cursor: pointer; padding: 2px 4px; line-height: 1; }
+.player-bar input[type="range"] { width: 90px; accent-color: var(--accent); }
+.player-bar .live { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #fff; }
+.player-bar .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--live); box-shadow: 0 0 6px var(--live); }
+.player-body:fullscreen video { height: 100%; object-fit: contain; }
