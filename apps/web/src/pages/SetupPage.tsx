@@ -130,7 +130,7 @@ export default function SetupPage() {
         {scan?.roots && !scan.running && (
           <table style={{ marginTop: 12 }}>
             <thead><tr><th>Folder</th><th>Kind</th><th className="mono">Files</th><th className="mono">Episodes</th><th>With chapters</th></tr></thead>
-            <tbody>{scan.roots.map((r) => <tr key={r.root}><td className="mono">{r.root}</td><td>{r.kind}</td><td className="mono">{r.count}</td><td className="mono">{r.episodes || '—'}</td><td>{r.episodes ? <span className={`badge ${r.withChapters === r.episodes ? 'ok' : r.withChapters === 0 ? 'warn' : ''}`}>{r.withChapters}/{r.episodes}</span> : '—'}</td></tr>)}</tbody>
+            <tbody>{scan.roots.map((r) => <tr key={r.root}><td className="mono">{r.root}</td><td>{r.kind}</td><td className="mono">{r.count}</td><td className="mono">{r.episodes || '-'}</td><td>{r.episodes ? <span className={`badge ${r.withChapters === r.episodes ? 'ok' : r.withChapters === 0 ? 'warn' : ''}`}>{r.withChapters}/{r.episodes}</span> : '-'}</td></tr>)}</tbody>
           </table>
         )}
       </div>

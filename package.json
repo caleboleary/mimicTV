@@ -15,5 +15,6 @@
     "build": "npm run build -w apps/web",
     "test": "npm run test -w packages/core",
     "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w apps/web && npm run typecheck -w apps/server"
-  }
+  },
+  "license": "MIT"
 }

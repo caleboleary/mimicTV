@@ -248,7 +248,7 @@ function Group({ g, settings, edits, blacksByRel, effectivePicks, togglePick, se
           <div key={e.rel} className={`brk-row${off ? ' off' : ''}`}>
             <div className="brk-name" title={e.rel}>{e.flags.length > 0 && <span className="badge warn" title={e.flags.join('; ')}>?</span>}{e.rel.split('/').pop()}</div>
             <EpisodeBar e={e} blacks={blacksByRel.get(e.rel) ?? []} picks={picks} quiet={quiet} loud={loud} onTick={(ms) => togglePick(e, ms)} />
-            <div className="brk-picks mono small">{off ? off === 'none' ? 'no breaks' : 'timed' : picks.length ? picks.map((p) => mmss(p / 1000)).join(' ') : e.skipped ?? '—'}</div>
+            <div className="brk-picks mono small">{off ? off === 'none' ? 'no breaks' : 'timed' : picks.length ? picks.map((p) => mmss(p / 1000)).join(' ') : e.skipped ?? '-'}</div>
             <div className="brk-actions">
               <button className={`chip${off === 'none' ? ' on' : ''}`} onClick={() => setOff(e, off === 'none' ? undefined : 'none')} title="Play this one straight through">none</button>
               <button className={`chip${off === 'timed' ? ' on' : ''}`} onClick={() => setOff(e, off === 'timed' ? undefined : 'timed')} title="Let the format's timed fallback place the ads">timed</button>

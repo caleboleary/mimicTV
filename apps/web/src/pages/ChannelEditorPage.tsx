@@ -105,11 +105,11 @@ function PoolSlot({ role, poolId, channelId, onPick }: { role: Role; poolId: str
     <div>
       <div className="pool-mode">
         <select value={pool ? pool.id : ''} onChange={(e) => onSelect(e.target.value)}>
-          {!pool && <option value="">— none —</option>}
+          {!pool && <option value="">(none)</option>}
           {mine.length > 0 && <optgroup label="This channel">{mine.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>}
           {shared.length > 0 && <optgroup label="Shared collections">{shared.map((p) => <option key={p.id} value={p.id}>{p.name} · {poolItems(p, library).length}</option>)}</optgroup>}
           <option value="__new__">+ new private {role === 'program' ? 'show list' : 'pool'}</option>
-          {role !== 'program' && pool && <option value="">— none —</option>}
+          {role !== 'program' && pool && <option value="">(none)</option>}
         </select>
         {pool && pool.ownerChannelId === channelId && (
           <>
@@ -340,7 +340,7 @@ export default function ChannelEditorPage() {
                                 <div className="toolbar" style={{ marginBottom: 0 }}>
                                   <span className="muted small">use</span>
                                   <select value={o.poolId} onChange={(e) => setOverrides(overrides.map((x, j) => j === i ? { ...x, poolId: e.target.value } : x))}>
-                                    <option value="">— pick a commercial pool —</option>
+                                    <option value="">(pick a commercial pool)</option>
                                     {adPools.map((p) => <option key={p.id} value={p.id}>{p.name} · {poolItems(p, library).length}</option>)}
                                   </select>
                                   <div className="grow" />
@@ -385,7 +385,7 @@ export default function ChannelEditorPage() {
                 <div className="toolbar" style={{ marginBottom: 0 }}>
                   <label className="field">Same as
                     <select value={channel.mirrorOf ?? ''} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, mirrorOf: e.target.value || undefined, shiftMinutes: e.target.value ? (c.shiftMinutes ?? 180) : undefined }))}>
-                      <option value="">— not a mirror —</option>
+                      <option value="">(not a mirror)</option>
                       {channels.filter((c) => c.id !== channel.id && !c.mirrorOf).map((c) => <option key={c.id} value={c.id}>{c.number} {c.name}</option>)}
                     </select>
                   </label>

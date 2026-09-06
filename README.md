@@ -42,3 +42,7 @@ ErsatzTV Next reads a flat, timestamped list of "play this file from here to the
 Everything is JSON on disk under `data/`: rules, library, break decisions, checkpoints. Small, readable, easy to back up.
 
 Docs: [domain model](docs/domain-model.md) · [break points](docs/breaks.md) · [ErsatzTV Next schema notes](docs/next-schema.md) · [development](docs/development.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

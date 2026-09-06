@@ -95,7 +95,7 @@ function Shows() {
               <td>{show.title}{show.year ? <span className="muted"> ({show.year})</span> : null}{hiddenByFolder && <span className="sub muted mono">{hiddenByFolder}</span>}</td>
               <td className="mono">{eps}</td>
               <td className="mono">{seasons.size}</td>
-              <td className="mono">{eps ? fmtDuration(dur / eps) : '—'}</td>
+              <td className="mono">{eps ? fmtDuration(dur / eps) : '-'}</td>
               <td><span className={`badge ${ch === eps && eps > 0 ? 'ok' : ch === 0 ? 'warn' : ''}`}>{ch}/{eps}</span></td>
               <td>{breaksFolder && <Link className={`badge ${breaks === 'decided' ? 'ok' : breaks === 'chapter data from files' ? 'warn' : ''}`} to={`/library/breaks?folder=${encodeURIComponent(breaksFolder)}`} title="Find, check, and lock in this show's ad breaks">{breaks} →</Link>}</td>
               <td style={{ textAlign: 'right' }}>
@@ -206,7 +206,7 @@ function Collections() {
                       <td>{i.title}{i.trimmable && <span className="badge" style={{ marginLeft: 6 }}>trimmable</span>}</td>
                       <td className="muted">{show ? `${show.title} S${String(i.season).padStart(2, '0')}E${String(i.episode).padStart(2, '0')}` : i.tags.filter((t) => t !== i.kind).join(', ')}</td>
                       <td className="mono">{i.durationMs ? fmtDuration(i.durationMs) : 'any'}</td>
-                      <td>{i.kind === 'episode' ? (i.breakPoints.length > 0 ? <span className="badge ok">{i.breakPoints.length} · {i.breakSource}</span> : <span className="badge warn">none</span>) : <span className="muted">—</span>}</td>
+                      <td>{i.kind === 'episode' ? (i.breakPoints.length > 0 ? <span className="badge ok">{i.breakPoints.length} · {i.breakSource}</span> : <span className="badge warn">none</span>) : <span className="muted">-</span>}</td>
                     </tr>
                   );
                 })}
