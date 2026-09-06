@@ -8,7 +8,7 @@ Channel setups people ask for, and where each one lives in the app. Every recipe
 That's the default. New channel, tick the shows, done. The **Half-hour show** format preset does the rest: 22 minutes of content, breaks at the episode's break points (or every 8 minutes when it has none), a network ID when a break lands near :00 or :30, and filler to the next :30.
 
 **One show, start to finish, in order.**
-Tick one show. Under Shows, set the order to **In order**. For hour-long episodes pick the **Hour drama** preset.
+Tick one show. Under Shows, set the order to **Sequential**. For hour-long episodes pick the **Hour drama** preset.
 
 **Two shows strictly alternating.**
 Tick exactly two shows with the default **Shuffle shows, episodes in order**. A shuffle never repeats the show that just played, so with two they alternate.
@@ -31,7 +31,7 @@ Format → **Music videos**. Clips stack to fill a half hour with a short break 
 ## Time of day
 
 **Cartoons in the morning, sitcoms in the evening, movies late.**
-Schedule → **+ band** at each hour the format changes. Each band has its own shows, format, and breaks; click a band to edit it. The last band of the day runs until the first one starts again.
+Schedule → **+ time band** at each hour the format changes. Each band has its own shows, format, and breaks; click a band to edit it. The last band of the day runs until the first one starts again.
 
 **Off air overnight: a static card or test pattern only.**
 Add a band at, say, 02:00 and give it the **Off air** format. Only the filler pool plays: no shows, no ads, no IDs.
