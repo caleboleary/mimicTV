@@ -83,7 +83,18 @@ route('POST', '/api/scan', async (req, res) => {
   json(res, { started: true });
   const result = await runScan(roots, opts.ffprobe ?? settings.library.ffprobe);
   if (result) {
-    store.saveLibrary({ library: result.library, source: `scan ${new Date().toLocaleString()}` });
+    let library = result.library;
+    if (opts.roots) {
+      // A partial rescan: replace what lives under the chosen folders, keep everything else as it was.
+      const prev = store.library()?.library;
+      const under = (p: string) => opts.roots!.some((r) => p === r.path || p.startsWith(r.path.replace(/\/+$/, '') + '/'));
+      const kept = prev?.items.filter((i) => !under(i.path)) ?? [];
+      const items = [...kept, ...library.items];
+      const showIds = new Set(items.map((i) => i.showId).filter(Boolean));
+      const shows = [...library.shows, ...(prev?.shows ?? []).filter((s) => !library.shows.some((n) => n.id === s.id))].filter((s) => showIds.has(s.id));
+      library = { shows, items };
+    }
+    store.saveLibrary({ library, source: `scan ${new Date().toLocaleString()}` });
     schedulePublish();
   }
 });

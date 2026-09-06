@@ -57,11 +57,12 @@ export default function SetupPage() {
       return next;
     });
   };
-  const startScan = async () => {
+  /** No roots = everything; some roots = rescan just those and keep the rest of the library. */
+  const startScan = async (roots?: Settings['library']['roots']) => {
     setBusy(true);
     clearTimeout(saveTimer.current);
     if (settings) await send('/api/settings', 'PUT', settings);
-    const r = await send('/api/scan', 'POST');
+    const r = await send('/api/scan', 'POST', roots ? { roots } : undefined);
     setBusy(false);
     if (r?.ok) setScan({ running: true, total: 0, done: 0, failed: 0 });
     else setScan({ running: false, total: 0, done: 0, failed: 0, error: r ? ((await r.json()) as { error?: string }).error : 'Service not reachable' });
@@ -103,19 +104,20 @@ export default function SetupPage() {
         </div>
         <div className="recipe" style={{ gap: 6 }}>
           {settings.library.roots.map((r, i) => (
-            <div key={i} className="search-row" style={{ gridTemplateColumns: '1fr auto auto' }}>
+            <div key={i} className="search-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
               <input type="text" placeholder="/mnt/user/media/tv" value={r.path} onChange={(e) => update((s) => ({ ...s, library: { ...s.library, roots: s.library.roots.map((x, j) => (j === i ? { ...x, path: e.target.value } : x)) } }))} />
               <select value={r.kind ?? ''} onChange={(e) => update((s) => ({ ...s, library: { ...s.library, roots: s.library.roots.map((x, j) => (j === i ? { ...x, kind: (e.target.value || undefined) as MediaKind | undefined } : x)) } }))}>
                 <option value="">guess kind</option>
                 {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
               </select>
+              <button className="btn sm" disabled={busy || scan?.running || !r.path} title="Rescan only this folder; the rest of the library stays as it is" onClick={() => startScan([r])}>Scan this</button>
               <button className="btn sm" onClick={() => update((s) => ({ ...s, library: { ...s.library, roots: s.library.roots.filter((_, j) => j !== i) } }))}>×</button>
             </div>
           ))}
           <div><button className="btn sm" onClick={() => update((s) => ({ ...s, library: { ...s.library, roots: [...s.library.roots, { path: '' }] } }))}>+ add folder</button></div>
         </div>
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
-          <button className="btn primary" disabled={busy || scan?.running || settings.library.roots.every((r) => !r.path)} onClick={startScan}>{scan?.running ? 'Scanning…' : 'Scan now'}</button>
+          <button className="btn primary" disabled={busy || scan?.running || settings.library.roots.every((r) => !r.path)} onClick={() => startScan()}>{scan?.running ? 'Scanning…' : 'Scan everything'}</button>
           {scan?.running && <span className="muted small">{scan.done}/{scan.total} · {pct}%{scan.current ? ` · ${scan.current}` : ''}</span>}
           {scan && !scan.running && scan.finishedAt && !scan.error && <span className="badge ok">done · {scan.done} files{scan.failed ? `, ${scan.failed} unreadable` : ''}</span>}
           {scan?.error && <span className="badge warn">{scan.error}</span>}
