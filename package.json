@@ -3,11 +3,17 @@
   "private": true,
   "version": "0.0.1",
   "description": "Scheduler + UI that produces playout timelines for ErsatzTV Next",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "npm run dev -w apps/web",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:server": "npm run dev -w apps/server",
+    "start": "npm run start -w apps/server",
     "build": "npm run build -w apps/web",
     "test": "npm run test -w packages/core",
-    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w apps/web"
+    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w apps/web && npm run typecheck -w apps/server"
   }
 }

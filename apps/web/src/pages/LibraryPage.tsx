@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   parseProbeJsonl, importProbeLibrary, starterRules, fmtDuration, poolItems, buildDummyCommercials, buildDummyIdsAndFiller, DUMMY_TAG,
   type MediaKind, type ProbeHeader, type ProbeRecord, type Pool,
@@ -56,7 +56,12 @@ function Overview({ withBreaks, eps }: { withBreaks: number; eps: number }) {
           <div className="stat"><b>{eps ? Math.round((withBreaks / eps) * 100) : 0}%</b><span>eps with breaks</span></div>
           <div className="stat"><b>{fmtDuration(library.items.reduce((n, i) => n + i.durationMs, 0))}</b><span>runtime</span></div>
         </div>
-        {source !== 'stub' && <div style={{ marginTop: 12 }}><button className="btn sm" onClick={useStub}>Back to stub library</button></div>}
+        <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
+          <Link to="/setup" className="btn sm primary">Scan folders / rescan</Link>
+          <span className="muted small">Set the folders once under Setup; rescan whenever files change. Channels keep their settings.</span>
+          <div className="grow" />
+          {source !== 'stub' && <button className="btn sm" onClick={useStub}>Back to stub library</button>}
+        </div>
       </div>
       <div className="panel">
         <div className="toolbar" style={{ marginBottom: 6 }}>
@@ -206,7 +211,7 @@ function Import() {
         {busy && <span className="muted small" style={{ marginLeft: 10 }}>parsing…</span>}
         <div className="section">
           <div className="toolbar" style={{ marginBottom: 6 }}>
-            <h3>Received files</h3><span className="muted small">uploaded to <code>data/imports/</code> via <code>scripts/receive.py</code></span>
+            <h3>Received files</h3><span className="muted small">in <code>data/imports/</code>: scans from Setup, uploads from the probe script (<code>-u http://this-machine:8787/imports/upload</code>), or copied in by hand</span>
             <div className="grow" /><button className="btn sm" onClick={refresh}>Refresh</button>
           </div>
           <p className="muted small" style={{ marginTop: 0 }}>Load a file to preview it, then choose how to apply it below.</p>

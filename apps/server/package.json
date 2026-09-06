@@ -1,0 +1,14 @@
+{
+  "name": "@mimictv/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite-node --watch src/index.ts",
+    "start": "vite-node src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@mimictv/core": "*"
+  }
+}

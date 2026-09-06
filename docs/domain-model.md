@@ -45,9 +45,13 @@ Number, name, `tvg_id`, logo, group, and **dayparts**: a sorted list of (minute-
 
 `TimelineEntry` is the unit the emitter consumes: absolute start/end, the item, its role, in/out points, and a `reason` string explaining the placement. Entries are contiguous by construction; the engine never leaves a gap.
 
+## Publishing
+
+`planPublish` (pure, in `emit/`) turns channels + rules + each channel's **checkpoint** into day files. A checkpoint is cursor state at a boundary plus the rules that were in force from it. Replaying those rules is deterministic, so a republish reproduces what was already written up to the first block end after now, then continues under the current rules. Mirrors are planned from their source and shifted. The service writes the result atomically and merges each day file so items before the boundary are kept as written.
+
 ## Deferred
 
 - Break-point detection (owner's blackdetect code, to be ported).
 - `dynamic` sources for live ad selection.
-- Cross-channel no-repeat.
 - Movie clocks, marathons, more selection modes.
+- Play-history database for long-range "last aired" questions.

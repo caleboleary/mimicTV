@@ -16,7 +16,7 @@ export default function ChannelsPage() {
   const duplicateChannel = useStore((s) => s.duplicateChannel);
   const removeChannel = useStore((s) => s.removeChannel);
   const sorted = useMemo(() => [...channels].sort((a, b) => (Number(a.number) || 0) - (Number(b.number) || 0)), [channels]);
-  const sims = useSims(sorted);
+  const sims = useSims();
   const dayStart = dateStart(previewDate);
   const [showLineup, setShowLineup] = useState(false);
 

@@ -8,6 +8,8 @@ export { simulate, simulateAll, shiftSimulation, freshCursors, clockForTime, day
 export { toPlayout, playoutFileName, PLAYOUT_SCHEMA_VERSION } from './emit/playout';
 export type { PlayoutFile, PlayoutItem } from './emit/playout';
 export { toXmltv, programmesFor } from './emit/xmltv';
+export { planPublish, mergePlayout } from './emit/publish';
+export type { Checkpoint, PublishOptions, ChannelPlan, PlannedFile } from './emit/publish';
 export type { Programme } from './emit/xmltv';
 export { defaultPools, defaultClocks, defaultChannels, defaultAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS } from './defaults';
 export { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle, slug } from './library/probe-import';

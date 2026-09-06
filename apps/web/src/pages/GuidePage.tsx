@@ -16,7 +16,7 @@ export default function GuidePage() {
   const library = useStore((s) => s.library);
   const previewDate = useStore((s) => s.previewDate);
   const sorted = useMemo(() => [...channels].sort((a, b) => (Number(a.number) || 0) - (Number(b.number) || 0)), [channels]);
-  const sims = useSims(sorted);
+  const sims = useSims();
   const dayStart = dateStart(previewDate);
   const isToday = isoDate(Date.now()) === previewDate;
   const [winStart, setWinStart] = useState<number>(() => isToday ? Math.floor(new Date().getHours() / WINDOW_H) * WINDOW_H : 6);

@@ -109,6 +109,12 @@ export default function PoolEditor({ pool, library, onChange, mode }: Props) {
             <input type="number" value={Math.round((pool.noRepeatMs ?? 0) / MIN)} onChange={(e) => set((p) => ({ ...p, noRepeatMs: Number(e.target.value) * MIN }))} />
           </label>
         )}
+        {!isProgram && (pool.selection === 'random' || pool.selection === 'shuffle') && (
+          <label className="check field" style={{ alignSelf: 'end' }}>
+            <input type="checkbox" checked={!!pool.noRepeatAcrossChannels} onChange={(e) => set((p) => ({ ...p, noRepeatAcrossChannels: e.target.checked || undefined }))} />
+            Count plays on other channels too
+          </label>
+        )}
         {isProgram && pool.selection === 'shows-shuffled-episodes-in-order' && (
           <label className="field">Episodes of a show in a row
             <select value={pool.runLength ?? 1} onChange={(e) => set((p) => ({ ...p, runLength: Number(e.target.value) }))}>

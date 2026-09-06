@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { poolItems, poolShows, fmtClock, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 import { useStore } from '../store/store';
 import { useRuleset, useSim } from '../store/useSim';
 import { exportDay } from '../export';
@@ -245,6 +247,23 @@ export default function ChannelEditorPage() {
                 <button className="btn sm danger" onClick={() => { removeBand(channel.id, channel.dayparts.indexOf(band)); setBandIdx(0); }}>{band.endMinute != null ? 'Remove fixed show' : 'Remove band'}</button>
               </div>
             )}
+            {band && (band.endMinute != null || channel.dayparts.length > 1) && (
+              <Disclosure label={band.days?.length || band.dates ? `Only on certain days (${[band.days?.length ? band.days.map((d) => DAYS[d]).join(' ') : '', band.dates ? `${band.dates.from} to ${band.dates.to}` : ''].filter(Boolean).join(', ')})` : 'Only on certain days'}>
+                <div className="toolbar" style={{ marginBottom: 8 }}>
+                  <div className="chips">
+                    {DAYS.map((name, d) => { const on = band.days?.includes(d) ?? false; return <button key={d} className={`chip${on ? ' on' : ''}`} onClick={() => updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((x) => (x === band ? { ...x, days: (() => { const next = on ? (x.days ?? []).filter((y) => y !== d) : [...(x.days ?? []), d]; return next.length ? next.sort() : undefined; })() } : x)) }))}>{name}</button>; })}
+                  </div>
+                  <span className="muted small">{band.days?.length ? '' : 'every day'}</span>
+                </div>
+                <div className="toolbar" style={{ marginBottom: 0 }}>
+                  <span className="muted small">Between</span>
+                  <input type="text" placeholder="12-01" style={{ width: 70 }} value={band.dates?.from ?? ''} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((x) => (x === band ? { ...x, dates: e.target.value || x.dates?.to ? { from: e.target.value, to: x.dates?.to ?? '' } : undefined } : x)) }))} />
+                  <span className="muted small">and</span>
+                  <input type="text" placeholder="12-31" style={{ width: 70 }} value={band.dates?.to ?? ''} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, dayparts: c.dayparts.map((x) => (x === band ? { ...x, dates: e.target.value || x.dates?.from ? { from: x.dates?.from ?? '', to: e.target.value } : undefined } : x)) }))} />
+                  <span className="muted small">(month-day, may wrap the new year; blank = all year)</span>
+                </div>
+              </Disclosure>
+            )}
             <p className="muted small" style={{ marginBottom: 0 }}>
               {band?.endMinute != null
                 ? 'A fixed show plays at its time every day, then the day picks up where it left off. Choose the show in the Shows section below.'
@@ -252,10 +271,44 @@ export default function ChannelEditorPage() {
             </p>
           </Card>
 
-          {clock ? (
+          {channel.mirrorOf ? (
+            <div className="panel muted small">This channel mirrors <b>{channels.find((c) => c.id === channel.mirrorOf)?.name ?? '?'}</b> {(channel.shiftMinutes ?? 0) / 60} hours later. Edit that channel to change what plays here; see Identity to stop mirroring.</div>
+          ) : clock ? (
             <>
-              <Card title="Shows" help={HELP.shows} summary={programPool ? `${showCount} shows · ${MODES.find((m) => m.v === programPool.selection)?.label.toLowerCase()}` : 'none'}>
-                <PoolSlot role="program" poolId={clock.program.poolId} channelId={channel.id} onPick={pickPool('program')} />
+              <Card title="Shows" help={HELP.shows} summary={clock.offAir ? 'off air' : programPool ? `${showCount} shows · ${MODES.find((m) => m.v === programPool.selection)?.label.toLowerCase()}` : 'none'}>
+                {clock.offAir ? (
+                  <p className="muted small" style={{ margin: 0 }}>This band is off air: only the filler pool plays. Pick another format preset to bring shows back.</p>
+                ) : (
+                  <>
+                    <PoolSlot role="program" poolId={clock.program.poolId} channelId={channel.id} onPick={pickPool('program')} />
+                    {programPool && sim && (
+                      <Disclosure label="Where each show is">
+                        <p className="muted small" style={{ marginTop: 0 }}>Next episode of each show after the preview day. "Start over" or jump to an episode; the change applies from the channel's next published break.</p>
+                        <div className="recipe" style={{ gap: 4 }}>
+                          {poolShows(programPool, library).map(({ showId, episodes }) => {
+                            const idx = (sim.cursors.showNext[showId] ?? 0) % episodes.length;
+                            const ep = episodes[idx]!;
+                            const title = library.shows.find((s) => s.id === showId)?.title ?? showId;
+                            const seedTo = (n: number | undefined) => updateChannel(channel.id, (c) => { const seeds = { ...(c.cursorSeeds ?? {}) }; if (n == null) delete seeds[showId]; else seeds[showId] = n; return { ...c, cursorSeeds: Object.keys(seeds).length ? seeds : undefined }; });
+                            return (
+                              <div key={showId} className="toolbar" style={{ marginBottom: 0, gap: 8 }}>
+                                <span style={{ minWidth: 160 }}>{title}</span>
+                                <span className="muted small mono">next S{String(ep.season).padStart(2, '0')}E{String(ep.episode).padStart(2, '0')} · {idx + 1}/{episodes.length}</span>
+                                <div className="grow" />
+                                <select value="" onChange={(e) => { if (e.target.value !== '') seedTo(Number(e.target.value)); }}>
+                                  <option value="">jump to…</option>
+                                  {episodes.map((x, i) => <option key={x.id} value={i}>S{String(x.season).padStart(2, '0')}E{String(x.episode).padStart(2, '0')} {x.title}</option>)}
+                                </select>
+                                <button className="btn sm" onClick={() => seedTo(0)}>Start over</button>
+                                {channel.cursorSeeds?.[showId] != null && <button className="btn sm" title="Forget the jump" onClick={() => seedTo(undefined)}>×</button>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Disclosure>
+                    )}
+                  </>
+                )}
               </Card>
               <Card title="Format" help={HELP.format} summary={`${Math.round(clock.program.targetMs / 60000)} min · pad :${clock.pad.toMinutes} · ${breakSummary(clock)}`} open={false}>
                 {!clock.ownerChannelId && clockUsedBy > 1 && (
@@ -328,6 +381,26 @@ export default function ChannelEditorPage() {
               <label className="field">Logo path<input type="text" value={channel.logo ?? ''} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, logo: e.target.value }))} /></label>
             </div>
             <div className="small muted" style={{ marginTop: 8 }}>Timeline anchored {new Date(channel.anchorMs).toLocaleDateString()} {fmtClock(channel.anchorMs)} · seed <code>{channel.seed}</code></div>
+            {channels.length > 1 && (
+              <Disclosure label={channel.mirrorOf ? `Mirrors ${channels.find((c) => c.id === channel.mirrorOf)?.name ?? '?'}, ${(channel.shiftMinutes ?? 0) / 60}h later` : 'Mirror another channel (east/west feed)'}>
+                <div className="toolbar" style={{ marginBottom: 0 }}>
+                  <label className="field">Same as
+                    <select value={channel.mirrorOf ?? ''} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, mirrorOf: e.target.value || undefined, shiftMinutes: e.target.value ? (c.shiftMinutes ?? 180) : undefined }))}>
+                      <option value="">— not a mirror —</option>
+                      {channels.filter((c) => c.id !== channel.id && !c.mirrorOf).map((c) => <option key={c.id} value={c.id}>{c.number} {c.name}</option>)}
+                    </select>
+                  </label>
+                  {channel.mirrorOf && (
+                    <label className="field">Delayed by
+                      <select value={channel.shiftMinutes ?? 180} onChange={(e) => updateChannel(channel.id, (c) => ({ ...c, shiftMinutes: Number(e.target.value) }))}>
+                        {[60, 120, 180, 240, 360].map((m) => <option key={m} value={m}>{m / 60} hour{m > 60 ? 's' : ''}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <p className="muted small" style={{ margin: '8px 0 0' }}>A mirror plays exactly what its source played, that many hours later. It has no recipe of its own.</p>
+              </Disclosure>
+            )}
           </Card>
 
           <div className="toolbar">

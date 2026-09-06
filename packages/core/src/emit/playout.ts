@@ -43,6 +43,8 @@ export interface EmitOptions {
    * each, pointing at mimicTV's resolver, instead of the pre-picked items.
    */
   dynamic?: { baseUrl: string; channelId: string };
+  /** Only emit entries that overlap this window (ms). Entries straddling an edge are kept whole. */
+  window?: { start: number; end: number };
 }
 
 export function toPlayout(blocks: ScheduledBlock[], opts: EmitOptions): PlayoutFile {
@@ -57,6 +59,7 @@ export function toPlayout(blocks: ScheduledBlock[], opts: EmitOptions): PlayoutF
     const liveBreaks = live ? new Set(block.breaks.filter((k) => k.entries.length > 0).map((k) => k.index)) : new Set<number>();
     const emittedBreaks = new Set<number>();
     for (const e of block.entries) {
+      if (opts.window && (e.end <= opts.window.start || e.start >= opts.window.end)) continue;
       if (e.role !== 'program' && e.breakIndex != null && liveBreaks.has(e.breakIndex)) {
         if (emittedBreaks.has(e.breakIndex)) continue;
         emittedBreaks.add(e.breakIndex);

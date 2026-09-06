@@ -250,8 +250,10 @@ function fillBreak(
   return { index: brk.index, kind: brk.kind, adPoolId: adPoolId || undefined, start, end, targetMs, nearBoundary, entries };
 }
 
-export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: number, hardStop?: number): ScheduledBlock {
-  const blockId = `${ctx.channel.id}-b${blockIndex}`;
+export function buildBlock(ctx: Ctx, clock: Clock, start: number, _blockIndex: number, hardStop?: number): ScheduledBlock {
+  // Ids derive from the start time, not the position in the run, so a timeline resumed from a
+  // checkpoint produces the same ids as the run that wrote it.
+  const blockId = `${ctx.channel.id}-${Math.round(start / 1000).toString(36)}`;
   let n = 0;
   const nextId = () => `${blockId}-${++n}`;
   // Room left before a fixed show must start (or the current one must end).
@@ -412,11 +414,21 @@ export function shiftSimulation(source: Simulation, mirror: Channel): Simulation
  * Simulate several channels together, in time order, so pools flagged `noRepeatAcrossChannels`
  * see each other's plays. Mirrors are derived from their source afterwards.
  */
-export function simulateAll(channels: Channel[], ruleset: Ruleset, untilMs: number): Map<string, Simulation> {
+export function simulateAll(channels: Channel[], ruleset: Ruleset, untilMs: number, priors?: Map<string, Simulation>): Map<string, Simulation> {
   const shared: Record<string, number> = {};
   const byId = new Map(channels.map((c) => [c.id, c]));
   const sources = channels.filter((c) => !c.mirrorOf || !byId.has(c.mirrorOf));
-  const runs = sources.map((c) => startRun(c, ruleset, undefined, shared));
+  // Seed the shared map from what the priors already played, so resumed runs keep avoiding each other.
+  if (priors) {
+    const kinds = new Map(ruleset.library.items.map((i) => [i.id, i.kind]));
+    for (const p of priors.values()) {
+      for (const [id, at] of Object.entries(p.cursors.lastPlayed)) {
+        const k = kinds.get(id);
+        if (k && k !== 'episode' && k !== 'movie') shared[id] = Math.max(shared[id] ?? -Infinity, at);
+      }
+    }
+  }
+  const runs = sources.map((c) => startRun(c, ruleset, priors?.get(c.id), shared));
   let guard = 0;
   for (;;) {
     let next: Run | undefined;

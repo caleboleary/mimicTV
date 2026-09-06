@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo } from 'react';
-import { simulate, DAY, type Channel, type Ruleset, type Simulation } from '@mimictv/core';
+import { simulateAll, DAY, type Channel, type Ruleset, type Simulation } from '@mimictv/core';
 import { useStore, dateStart } from './store';
 
 export function useRuleset(): Ruleset {
@@ -9,41 +9,39 @@ export function useRuleset(): Ruleset {
   return useMemo(() => ({ library, pools, clocks }), [library, pools, clocks]);
 }
 
-function simFor(channel: Channel, ruleset: Ruleset, previewDate: string): Simulation | undefined {
-  if (channel.dayparts.length === 0 || channel.dayparts.some((d) => !ruleset.clocks.some((c) => c.id === d.clockId))) return undefined;
-  try {
-    const until = dateStart(previewDate) + 2 * DAY;
-    return simulate(channel, ruleset, Math.max(until, channel.anchorMs + DAY));
-  } catch {
-    return undefined;
-  }
-}
-
 /** Only these channel fields affect the schedule; renaming a channel must not re-simulate it. */
 function scheduleKey(c: Channel): string {
-  return JSON.stringify([c.id, c.dayparts, c.anchorMs, c.seed]);
+  return JSON.stringify([c.id, c.dayparts, c.anchorMs, c.seed, c.mirrorOf, c.shiftMinutes, c.cursorSeeds]);
 }
 
 /**
- * Simulate a channel through the preview day plus one day for "upcoming" views.
- * Inputs are deferred so typing stays responsive; the preview catches up a beat later.
+ * Simulate every channel together (cross-channel no-repeat and mirrors need each other)
+ * through the preview day plus one. Inputs are deferred so typing stays responsive.
  */
-export function useSim(channel: Channel | undefined): Simulation | undefined {
+export function useSims(): Map<string, Simulation | undefined> {
   const ruleset = useDeferredValue(useRuleset());
   const previewDate = useDeferredValue(useStore((s) => s.previewDate));
-  const key = channel ? scheduleKey(channel) : '';
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- key stands in for channel
-  const stable = useMemo(() => channel, [key]);
-  return useMemo(() => (stable ? simFor(stable, ruleset, previewDate) : undefined), [stable, ruleset, previewDate]);
-}
-
-export function useSims(channels: Channel[]): Map<string, Simulation | undefined> {
-  const ruleset = useDeferredValue(useRuleset());
-  const previewDate = useDeferredValue(useStore((s) => s.previewDate));
+  const channels = useStore((s) => s.channels);
   const key = channels.map(scheduleKey).join('|');
   // eslint-disable-next-line react-hooks/exhaustive-deps -- key stands in for channels
   const stable = useMemo(() => channels, [key]);
-  return useMemo(() => new Map(stable.map((c) => [c.id, simFor(c, ruleset, previewDate)])), [stable, ruleset, previewDate]);
+  return useMemo(() => {
+    const out = new Map<string, Simulation | undefined>();
+    const runnable = stable.filter((c) => c.dayparts.length > 0 && c.dayparts.every((d) => ruleset.clocks.some((k) => k.id === d.clockId)) || (c.mirrorOf && stable.some((s) => s.id === c.mirrorOf)));
+    try {
+      const until = Math.max(dateStart(previewDate) + 2 * DAY, ...runnable.map((c) => c.anchorMs + DAY));
+      const sims = simulateAll(runnable, ruleset, until);
+      for (const c of stable) out.set(c.id, sims.get(c.id));
+    } catch {
+      for (const c of stable) out.set(c.id, undefined);
+    }
+    return out;
+  }, [stable, ruleset, previewDate]);
+}
+
+export function useSim(channel: Channel | undefined): Simulation | undefined {
+  const sims = useSims();
+  return channel ? sims.get(channel.id) : undefined;
 }
 
 export function useSelectedChannel(): Channel | undefined {

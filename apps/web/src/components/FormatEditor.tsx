@@ -103,11 +103,18 @@ export default function FormatEditor({ clock, onChange: set }: Props) {
                   </label>
                 </>
               )}
+              {!noPad && (
+                <label className="check field">
+                  <input type="checkbox" checked={!!clock.breaks.live} onChange={(e) => set((c) => ({ ...c, breaks: { ...c.breaks, live: e.target.checked || undefined } }))} />
+                  Pick ads at playback (Next asks mimicTV during each break)
+                </label>
+              )}
               <label className="field">Don't cut if a piece would be under (min)
                 <input type="number" step={0.5} value={minutes(clock.breaks.minSegmentMs ?? 3 * MIN)} onChange={(e) => set((c) => ({ ...c, breaks: { ...c.breaks, minSegmentMs: Number(e.target.value) * MIN } }))} />
               </label>
             </div>
             {noPad && <p className="muted small" style={{ margin: '8px 0 0' }}>No padding means no ad time: breaks are empty and each program starts when the last one ends.</p>}
+            {clock.breaks.live && <p className="muted small" style={{ margin: '8px 0 0' }}>The preview still shows likely ads. In the written files each break is a placeholder Next resolves live, so set the URL Next can reach mimicTV on under Setup.</p>}
           </div>
 
           {!noPad && (
