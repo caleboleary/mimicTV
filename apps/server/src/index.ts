@@ -9,6 +9,8 @@ import { poolItems, rngFor, visibleLibrary, type MediaItem, type PlayoutItem } f
 import { store, files, IMPORTS, DATA, type Settings, type RulesSnapshot, type LibraryFile } from './store';
 import { runScan, scanStatus } from './scan';
 import { publishNow, lastPublish } from './publish';
+import { composed, loadShow, saveShow, showFolders, analyzePlan, analyzeShow, breaksStatus, cancelAnalyze, seedFromChapterizeCache, importEmbedded } from './breaks';
+import type { ShowBreaks } from '@mimictv/core';
 
 const PORT = Number(process.env.PORT ?? 8787);
 
@@ -39,9 +41,9 @@ route('PUT', '/api/rules', async (req, res) => {
   res.end('ok');
 });
 route('GET', '/api/library', (_r, res) => {
-  if (!fs.existsSync(files.library)) { json(res, {}, 404); return; }
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  fs.createReadStream(files.library).pipe(res);
+  const lib = store.library();
+  if (!lib) { json(res, {}, 404); return; }
+  json(res, { ...lib, library: composed(lib.library) });
 });
 route('PUT', '/api/library', async (req, res) => {
   store.saveLibrary(JSON.parse((await body(req)).toString()) as LibraryFile);
@@ -89,6 +91,43 @@ route('POST', '/api/scan', async (req, res) => {
 });
 route('GET', '/api/scan/status', (_r, res) => json(res, scanStatus()));
 
+// ---- break points (docs/breaks.md)
+route('GET', '/api/breaks', (_r, res) => { const lib = store.library()?.library; json(res, lib ? showFolders(lib) : []); });
+route('GET', '/api/breaks/status', (_r, res) => json(res, breaksStatus()));
+route('GET', '/api/breaks/show', (_r, res, _p, url) => json(res, loadShow(url.searchParams.get('folder') ?? '')));
+route('PUT', '/api/breaks/show', async (req, res) => {
+  const show = JSON.parse((await body(req)).toString()) as ShowBreaks;
+  if (show.version !== 1 || !show.folder || typeof show.files !== 'object') { json(res, { error: 'Not a breaks file (expected version 1, folder, files)' }, 400); return; }
+  saveShow(show);
+  schedulePublish(); // decisions change what the engine cuts, so the timeline re-flows from the next break
+  res.end('ok');
+});
+route('POST', '/api/breaks/plan', async (req, res) => {
+  const { folder, settings, force } = JSON.parse((await body(req)).toString()) as { folder: string; settings?: Record<string, unknown>; force?: boolean };
+  const lib = store.library()?.library; if (!lib) { json(res, { error: 'No library' }, 400); return; }
+  json(res, analyzePlan(lib, folder, settings ?? {}, !!force));
+});
+route('POST', '/api/breaks/analyze', async (req, res) => {
+  const { folder, settings, force } = JSON.parse((await body(req)).toString()) as { folder: string; settings?: Record<string, unknown>; force?: boolean };
+  const lib = store.library()?.library; if (!lib) { json(res, { error: 'No library' }, 400); return; }
+  if (breaksStatus().running) { json(res, { error: 'A break analysis is already running' }, 409); return; }
+  const ffmpeg = store.settings().library.ffprobe.replace(/ffprobe(\S*)$/, 'ffmpeg$1');
+  json(res, { started: true });
+  analyzeShow(ffmpeg, lib, folder, settings ?? {}, !!force).catch((e) => console.error('[breaks] analyze failed', e));
+});
+route('POST', '/api/breaks/cancel', (_r, res) => { cancelAnalyze(); json(res, { ok: true }); });
+route('POST', '/api/breaks/import-embedded', async (req, res) => {
+  const { folder } = JSON.parse((await body(req)).toString()) as { folder: string };
+  const lib = store.library()?.library; if (!lib) { json(res, { error: 'No library' }, 400); return; }
+  const n = importEmbedded(lib, folder); if (n) schedulePublish();
+  json(res, { imported: n });
+});
+route('POST', '/api/breaks/seed', async (req, res) => {
+  const { cachePath } = JSON.parse((await body(req)).toString()) as { cachePath: string };
+  const lib = store.library()?.library; if (!lib) { json(res, { error: 'No library' }, 400); return; }
+  try { json(res, seedFromChapterizeCache(lib, cachePath)); } catch (e) { json(res, { error: (e as Error).message }, 400); }
+});
+
 // ---- publishing
 let timer: ReturnType<typeof setInterval> | undefined;
 let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -127,7 +166,7 @@ const livePlayed: Record<string, number> = {};
 route('GET', '/dynamic/:channelId', (req, res, _p, url) => {
   const full = store.library()?.library; const rules = store.rules();
   if (!full || !rules) { res.writeHead(404); res.end(); return; }
-  const lib = visibleLibrary(full, rules.hiddenFolders ?? []);
+  const lib = visibleLibrary(composed(full), rules.hiddenFolders ?? []);
   const now = Date.parse(String(req.headers['x-etv-now'] ?? '')) || Date.now();
   const until = Date.parse(String(req.headers['x-etv-until'] ?? '')) || now + 60000;
   const room = until - now;

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { planPublish, mergePlayout, mergeTimeline, blocksFromPlayout, compactBlocks, visibleLibrary, DAY, type Channel, type Library, type PlayoutFile, type Ruleset, type ScheduledBlock } from '@mimictv/core';
 import { store, writeJsonAtomic, files as dataFiles, readJson, type Settings } from './store';
+import { composed } from './breaks';
 
 export interface PublishResult { at: number; channels: { id: string; name: string; files: string[]; boundary: number }[]; outputDir: string; error?: string }
 
@@ -46,7 +47,8 @@ function channelJson(settings: Settings): unknown {
 export function publishNow(now = Date.now()): PublishResult {
   const settings = store.settings();
   const rules = store.rules();
-  const lib = store.library();
+  const raw = store.library();
+  const lib = raw && { ...raw, library: composed(raw.library) };
   const out = settings.next.outputDir && path.resolve(settings.next.outputDir);
   if (!out) return { at: now, channels: [], outputDir: '', error: 'No output folder set' };
   if (!rules || !lib) return { at: now, channels: [], outputDir: out, error: 'No rules or library saved yet' };

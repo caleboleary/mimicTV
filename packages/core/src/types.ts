@@ -35,6 +35,10 @@ export interface MediaItem {
   /** Candidate break offsets (ms into the file), sorted, strictly inside the file. */
   breakPoints: number[];
   breakSource: 'chapters' | 'blackdetect' | 'manual' | 'none';
+  /** Scan fact: the embedded chapters are ours (titled "Segment N"), not the release's scene marks. */
+  chaptersOurs?: boolean;
+  /** Decided: no breaks at all, not even the clock's timed fallback. */
+  noBreaks?: boolean;
   /** Filler that can be cut to any length (a still image, a long ambient loop). */
   trimmable?: boolean;
   /** Source is a still image: video comes from the image, audio is synthesized silence. */

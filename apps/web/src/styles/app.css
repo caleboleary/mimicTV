@@ -321,3 +321,22 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 tr.hidden-row td { opacity: 0.45; }
 tr.hidden-row td:last-child { opacity: 1; }
 tr.hidden-row .sub { opacity: 0.8; }
+
+/* Breaks page */
+.progress { flex: 1; max-width: 360px; height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+.brk-season { margin-top: 12px; }
+.brk-season-head { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.brk-row { display: grid; grid-template-columns: 240px 1fr 150px auto; gap: 10px; align-items: center; padding: 4px 0; }
+.brk-row.off { opacity: 0.5; }
+.brk-row .brk-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 6px; align-items: center; }
+.brk-row .brk-why { grid-column: 2 / -1; margin-top: -2px; }
+.brk-picks { color: var(--accent); }
+.brk-actions { display: inline-flex; gap: 4px; }
+.brk-bar { position: relative; height: 22px; background: var(--panel-2); border-radius: 4px; }
+.brk-bar .tick { position: absolute; bottom: 0; width: 2px; height: 8px; margin-left: -1px; background: #4b5563; cursor: pointer; }
+.brk-bar .tick.quiet { height: 16px; background: #8b8f99; }
+.brk-bar .tick.loud { height: 5px; opacity: 0.6; }
+.brk-bar .tick:hover { background: var(--text); }
+.brk-bar .tick.on { height: 22px; width: 3px; margin-left: -1.5px; background: var(--accent); box-shadow: 0 0 6px rgba(242, 181, 68, 0.7); }
+.brk-bar .tick.on.manual { background: var(--live); box-shadow: 0 0 6px rgba(255, 90, 90, 0.7); }

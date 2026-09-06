@@ -32,9 +32,11 @@ of what the scan saw; the service composes breaks into library items on read, so
 - Files are keyed by path relative to the show folder; `key` lets a renamed file re-attach instead of re-measuring.
 - `measured` is the expensive part (ffmpeg) and is kept so decisions can be revisited without re-running it.
 
-Precedence when composing the library: breaks file → embedded chapters titled `Segment N` (ours, from the old
-in-place tool) → nothing. Release chapters (DVD/AMZN scene marks) are never used automatically; they are offered
-as candidates.
+Precedence when composing the library: a saved decision wins; otherwise the file's embedded chapters stand as the
+scan found them, whether ours (titled `Segment N`, from the old in-place tool) or the release's. A running channel
+therefore never changes until someone decides. The Breaks page says plainly when a show is running on release
+chapters (DVD/AMZN scene marks: "about 9 per episode, usually not breaks") and offers "keep the old tool's chapters"
+where ours are present.
 
 ## Measurement (service, background job)
 

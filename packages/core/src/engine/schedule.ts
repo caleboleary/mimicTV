@@ -91,6 +91,7 @@ const DEFAULT_MIN_SEGMENT_MS = 3 * MIN;
 
 /** Candidate cut points for a program: its own break points if allowed and present, else the clock's fallback. */
 export function candidateCuts(program: MediaItem, breaks: Clock['breaks']): number[] {
+  if (program.noBreaks) return [];
   if (breaks.atChapters && program.breakPoints.length > 0) return program.breakPoints;
   const fb = breaks.fallback;
   if (!fb || fb.mode === 'none') return [];

@@ -76,7 +76,10 @@ function Shows() {
     const ql = q.trim().toLowerCase();
     const all = [...library.shows].filter((s) => !ql || s.title.toLowerCase().includes(ql)).sort((a, b) => a.title.localeCompare(b.title)).map((s) => {
       const folder = showFolder(library, s.id);
-      return { show: s, folder, hiddenByFolder: folder ? hiddenBy(folder, hidden) : undefined, ...(m.get(s.id) ?? { eps: 0, ch: 0, dur: 0, seasons: new Set<number>() }) };
+      const eps = library.items.filter((i) => i.showId === s.id && i.kind === 'episode');
+      const first = eps[0];
+      const breaks = !first ? '' : eps.some((i) => i.breakSource === 'blackdetect' || i.breakSource === 'manual' || i.noBreaks) ? 'decided' : eps.some((i) => i.chaptersOurs) ? 'old tool' : eps.some((i) => i.breakSource === 'chapters') ? 'release chapters' : 'none';
+      return { show: s, folder, breaksFolder: first ? first.path.split('/').slice(0, 4).join('/') : undefined, breaks, hiddenByFolder: folder ? hiddenBy(folder, hidden) : undefined, ...(m.get(s.id) ?? { eps: 0, ch: 0, dur: 0, seasons: new Set<number>() }) };
     });
     // Hidden shows sink to the bottom, greyed, with the way back next to them.
     return [...all.filter((r) => !r.hiddenByFolder), ...all.filter((r) => r.hiddenByFolder)];
@@ -91,15 +94,16 @@ function Shows() {
         <span className="muted small">Hidden shows stay out of every pool, preview, and publish until you show them again.</span>
       </div>
       <table>
-        <thead><tr><th>Show</th><th className="mono">Eps</th><th className="mono">Seasons</th><th className="mono">Avg length</th><th>Break points</th><th /></tr></thead>
+        <thead><tr><th>Show</th><th className="mono">Eps</th><th className="mono">Seasons</th><th className="mono">Avg length</th><th>Break points</th><th>Breaks</th><th /></tr></thead>
         <tbody>
-          {rows.map(({ show, folder, hiddenByFolder, eps, ch, dur, seasons }, i) => (
+          {rows.map(({ show, folder, breaksFolder, breaks, hiddenByFolder, eps, ch, dur, seasons }, i) => (
             <tr key={show.id} className={hiddenByFolder ? 'hidden-row' : ''} style={hiddenByFolder && i > 0 && !rows[i - 1]!.hiddenByFolder ? { borderTop: '2px solid var(--line)' } : undefined}>
               <td>{show.title}{show.year ? <span className="muted"> ({show.year})</span> : null}{hiddenByFolder && <span className="sub muted mono">{hiddenByFolder}</span>}</td>
               <td className="mono">{eps}</td>
               <td className="mono">{seasons.size}</td>
               <td className="mono">{eps ? fmtDuration(dur / eps) : '—'}</td>
               <td><span className={`badge ${ch === eps && eps > 0 ? 'ok' : ch === 0 ? 'warn' : ''}`}>{ch}/{eps}</span></td>
+              <td>{breaksFolder && <Link className={`badge ${breaks === 'decided' ? 'ok' : breaks === 'release chapters' ? 'warn' : ''}`} to={`/library/breaks?folder=${encodeURIComponent(breaksFolder)}`} title="Find, check, and lock in this show's ad breaks">{breaks} →</Link>}</td>
               <td style={{ textAlign: 'right' }}>
                 {hiddenByFolder
                   ? <button className="btn sm" onClick={() => unhideFolder(hiddenByFolder)}>Show again</button>

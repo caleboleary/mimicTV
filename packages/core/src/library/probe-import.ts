@@ -169,10 +169,12 @@ export function importProbeLibrary(records: ProbeRecord[], opts: ImportOptions =
       .filter((ms) => ms > 1000 && ms < durationMs - 1000)
       .sort((a, b) => a - b);
 
+    const titles = (rec.probe!.chapters ?? []).map((c) => c.tags?.title ?? '');
     const item: MediaItem = {
       id, kind, title: fileName, path, durationMs, tags,
       breakPoints: chapters,
       breakSource: chapters.length > 0 ? 'chapters' : 'none',
+      chaptersOurs: titles.length > 1 && titles.every((t) => /^Segment \d+$/.test(t)) ? true : undefined,
       media: {
         container: fmt.format_name, videoCodec: video?.codec_name, width: video?.width, height: video?.height,
         frameRate: video?.r_frame_rate, audioCodec: audio?.codec_name, audioChannels: audio?.channels,

@@ -4,6 +4,7 @@ import ChannelsPage from './pages/ChannelsPage';
 import ChannelEditorPage from './pages/ChannelEditorPage';
 import LibraryPage from './pages/LibraryPage';
 import SetupPage from './pages/SetupPage';
+import BreaksPage from './pages/BreaksPage';
 import IptvLinks from './components/IptvLinks';
 import { useStore } from './store/store';
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/channels" element={<ChannelsPage />} />
           <Route path="/channels/:id" element={<ChannelEditorPage />} />
           <Route path="/library" element={<LibraryPage />} />
+          <Route path="/library/breaks" element={<BreaksPage />} />
           <Route path="/setup" element={<SetupPage />} />
           <Route path="/preview" element={<Navigate to="/guide" replace />} />
           <Route path="/pools/*" element={<Navigate to="/library?tab=collections" replace />} />
