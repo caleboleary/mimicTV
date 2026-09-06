@@ -12,7 +12,7 @@ services:
     volumes:
       - /mnt/user/appdata/mimictv/repo:/app          # this repo
       - /mnt/user/appdata/mimictv/home:/root         # keeps Claude Code login and shell history
-      - /mnt/user/media:/media:ro                    # your media, same path Next sees
+      - /mnt/user/Media:/media:ro                    # your media, same path Next sees
       - /mnt/user/appdata/ersatztv-next:/next        # published output; Next reads it as /config
     environment:
       - TZ=America/Chicago
@@ -25,9 +25,9 @@ services:
     image: ghcr.io/ersatztv/next:develop
     container_name: ersatztv-next
     ports:
-      - "8409:8409"
+      - "8410:8409"   # host 8410; Legacy ErsatzTV already owns 8409 on the box
     volumes:
-      - /mnt/user/media:/media:ro
+      - /mnt/user/Media:/media:ro
       - /mnt/user/appdata/ersatztv-next:/config
     environment:
       - TZ=America/Chicago

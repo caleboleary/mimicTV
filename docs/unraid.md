@@ -8,7 +8,7 @@ A dev setup, not a release: the repo is bind-mounted into a container that has N
 |---|---|---|---|
 | `/mnt/user/appdata/mimictv/repo` | this repo, including `data/` | `/app` | |
 | `/mnt/user/appdata/mimictv/home` | home dir: Claude Code install and login, shell history | `/root` | |
-| `/mnt/user/media` | your media (read-only) | `/media` | `/media` |
+| `/mnt/user/Media` | your media (read-only) | `/media` | `/media` |
 | `/mnt/user/appdata/ersatztv-next` | what mimicTV publishes | `/next` | `/config` |
 
 Media is mounted at the same path in both containers, so no path mapping is needed. Next runs as user 1000 and writes its HLS output under `/config`, so that folder must be writable by uid 1000.
@@ -41,7 +41,7 @@ docker run -d --name mimictv-dev --restart unless-stopped \
   -p 5173:5173 -p 8787:8787 -e TZ=America/Chicago \
   -v /mnt/user/appdata/mimictv/repo:/app \
   -v /mnt/user/appdata/mimictv/home:/root \
-  -v /mnt/user/media:/media:ro \
+  -v /mnt/user/Media:/media:ro \
   -v /mnt/user/appdata/ersatztv-next:/next \
   mimictv-dev
 ```
@@ -53,8 +53,18 @@ Open `http://<unraid-ip>:5173` from any machine on the network.
 1. **Library.** Remove the dummy interstitials on the Library page if they're still there. They point at files that don't exist.
 2. **Scan.** Setup, add `/media/TV`, `/media/commercials`, and whatever else you keep (ids, bumpers, filler). Scan now. This is real ffprobe inside the container, so no probe script and no upload.
 3. **Publish.** Setup, output folder `/next`. Set the hardware accel field if the box has Quick Sync or similar, otherwise Next transcodes 1080p in software. Publish now. You should see `lineup.json`, `channels/`, and `xmltv/` under `/mnt/user/appdata/ersatztv-next`.
-4. **Next.** `docker compose up -d ersatztv-next`. It reads `/config/lineup.json`. Watch `docker logs -f ersatztv-next` for the first channel to start.
-5. **Watch.** `http://<unraid-ip>:8409/channel/1.m3u8` in VLC first. Then point Plex, Jellyfin, or an IPTV app at Next's M3U and XMLTV.
+4. **Next.** `docker compose up -d ersatztv-next`, or without compose:
+
+   ```sh
+   docker run -d --name ersatztv-next --restart unless-stopped \
+     -p 8410:8409 -e TZ=America/Chicago \
+     -v /mnt/user/Media:/media:ro \
+     -v /mnt/user/appdata/ersatztv-next:/config \
+     ghcr.io/ersatztv/next:develop
+   ```
+
+   It reads `/config/lineup.json`. Watch `docker logs -f ersatztv-next` for the first channel to start. Host port 8410 is used because Legacy ErsatzTV usually already owns 8409; inside the container Next still listens on 8409, matching `lineup.json`.
+5. **Watch.** `http://<unraid-ip>:8410/channel/1.m3u8` in VLC first. Then point Plex, Jellyfin, or an IPTV app at Next's M3U and XMLTV.
 
 The service tops the playout up every six hours and republishes a few seconds after any channel edit. Both are settings.
 
