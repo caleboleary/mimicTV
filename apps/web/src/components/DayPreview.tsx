@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { blocksInWindow, fmtDuration, DAY, type Channel, type ScheduledBlock, type Simulation } from '@mimictv/core';
 import { useStore, dateStart, isoDate } from '../store/store';
 import HourLanes from './HourLanes';
+import { useNow } from '../store/useNow';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -11,13 +12,14 @@ export function DateBar({ onChange }: { onChange?: () => void }) {
   const dayStart = dateStart(previewDate);
   const weekStart = dayStart - new Date(dayStart).getDay() * DAY;
   const week = Array.from({ length: 7 }, (_, i) => weekStart + i * DAY);
+  const today = isoDate(Date.now());
   const go = (iso: string) => { onChange?.(); setPreviewDate(iso); };
   return (
     <>
       <button className="btn sm" onClick={() => go(isoDate(dayStart - DAY))}>◀</button>
       <div className="chips">
         {week.map((d) => (
-          <button key={d} className={`chip${isoDate(d) === previewDate ? ' on' : ''}`} onClick={() => go(isoDate(d))}>
+          <button key={d} className={`chip${isoDate(d) === previewDate ? ' on' : ''}${isoDate(d) === today ? ' today' : ''}`} title={isoDate(d) === today ? 'Today' : undefined} onClick={() => go(isoDate(d))}>
             {WEEKDAYS[new Date(d).getDay()]} {new Date(d).getDate()}
           </button>
         ))}
@@ -38,6 +40,8 @@ interface Props {
 export default function DayPreview({ channel, sim, selectedBlockId, onSelect }: Props) {
   const previewDate = useStore((s) => s.previewDate);
   const dayStart = dateStart(previewDate), dayEnd = dayStart + DAY;
+  const now = useNow();
+  const nowMs = now >= dayStart && now < dayEnd ? now : undefined;
   const blocks = useMemo(() => (sim ? blocksInWindow(sim, dayStart, dayEnd) : []), [sim, dayStart, dayEnd]);
   const totals = useMemo(() => {
     const t = { program: 0, commercial: 0, filler: 0, ids: 0 };
@@ -67,7 +71,7 @@ export default function DayPreview({ channel, sim, selectedBlockId, onSelect }: 
       ) : blocks.length === 0 ? (
         <div className="empty">Nothing scheduled: this channel's timeline starts {new Date(channel.anchorMs).toLocaleString()}.</div>
       ) : (
-        <HourLanes dayStart={dayStart} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={onSelect} />
+        <HourLanes dayStart={dayStart} blocks={blocks} selectedBlockId={selectedBlockId} onSelect={onSelect} nowMs={nowMs} />
       )}
       <div className="legend" style={{ marginTop: 12 }}>
         <span><i style={{ background: 'hsl(200 55% 52%)' }} />program (color = show)</span>

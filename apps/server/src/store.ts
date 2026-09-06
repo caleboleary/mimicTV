@@ -1,11 +1,13 @@
 /** JSON files under data/. Every write is atomic (temp file + rename). */
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Channel, Checkpoint, Clock, Library, MediaKind, Pool } from '@mimictv/core';
+import type { Channel, Checkpoint, Clock, CompactBlock, Library, MediaKind, Pool } from '@mimictv/core';
 
 export const ROOT = path.resolve(import.meta.dirname ?? process.cwd(), '../../..');
 export const DATA = process.env.MIMICTV_DATA ? path.resolve(process.env.MIMICTV_DATA) : path.join(ROOT, 'data');
 export const IMPORTS = path.join(DATA, 'imports');
+/** One file per channel: the blocks behind the playout files, so the app can show what was actually published. */
+export const TIMELINES = path.join(DATA, 'timeline');
 
 export interface RulesSnapshot { pools: Pool[]; clocks: Clock[]; channels: Channel[]; selectedChannelId?: string; previewDate?: string; librarySource?: string }
 export interface LibraryFile { library: Library; source: string }
@@ -34,10 +36,10 @@ export function readJson<T>(file: string): T | undefined {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')) as T; } catch { return undefined; }
 }
 
-export function writeJsonAtomic(file: string, value: unknown): void {
+export function writeJsonAtomic(file: string, value: unknown, opts?: { minify?: boolean }): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+  fs.writeFileSync(tmp, typeof value === 'string' ? value : opts?.minify ? JSON.stringify(value) : JSON.stringify(value, null, 2));
   fs.renameSync(tmp, file);
 }
 
@@ -61,4 +63,7 @@ export const store = {
   saveLibrary: (l: LibraryFile) => writeJsonAtomic(files.library, l),
   saveSettings: (s: Settings) => writeJsonAtomic(files.settings, s),
   saveCheckpoints: (c: Record<string, Checkpoint>) => writeJsonAtomic(files.checkpoints, c),
+  timeline: (channelId: string) => readJson<CompactBlock[]>(path.join(TIMELINES, `${channelId}.json`)),
+  saveTimeline: (channelId: string, blocks: CompactBlock[]) => writeJsonAtomic(path.join(TIMELINES, `${channelId}.json`), blocks, { minify: true }),
+  deleteTimeline: (channelId: string) => fs.rmSync(path.join(TIMELINES, `${channelId}.json`), { force: true }),
 };

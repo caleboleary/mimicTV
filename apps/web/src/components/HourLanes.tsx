@@ -8,9 +8,11 @@ interface Props {
   onSelect?: (block: ScheduledBlock, entry: TimelineEntry) => void;
   compact?: boolean;
   hours?: number;
+  /** Wall-clock now; draws a live marker in the lane that contains it. */
+  nowMs?: number;
 }
 
-export default function HourLanes({ dayStart, blocks, selectedBlockId, onSelect, compact, hours = 24 }: Props) {
+export default function HourLanes({ dayStart, blocks, selectedBlockId, onSelect, compact, hours = 24, nowMs }: Props) {
   const lanes = Array.from({ length: hours }, (_, h) => dayStart + h * HOUR);
   return (
     <div className={`lanes${compact ? ' compact' : ''}`}>
@@ -45,6 +47,7 @@ export default function HourLanes({ dayStart, blocks, selectedBlockId, onSelect,
                   );
                 }),
               )}
+              {nowMs != null && nowMs >= laneStart && nowMs < laneEnd && <div className="nowline" style={{ left: `${((nowMs - laneStart) / HOUR) * 100}%` }} />}
             </div>
           </div>
         );

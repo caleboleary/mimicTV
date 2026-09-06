@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { blocksInWindow, fmtClock, HOUR, DAY, type ScheduledBlock } from '@mimictv/core';
 import { useStore, dateStart, isoDate } from '../store/store';
 import { useSims } from '../store/useSim';
+import { useNow } from '../store/useNow';
 import { DateBar } from '../components/DayPreview';
 import BlockDetail from '../components/BlockDetail';
 import { entryColor } from '../colors';
@@ -15,17 +16,22 @@ export default function GuidePage() {
   const clocks = useStore((s) => s.clocks);
   const library = useStore((s) => s.library);
   const previewDate = useStore((s) => s.previewDate);
+  const setPreviewDate = useStore((s) => s.setPreviewDate);
   const sorted = useMemo(() => [...channels].sort((a, b) => (Number(a.number) || 0) - (Number(b.number) || 0)), [channels]);
   const sims = useSims();
   const dayStart = dateStart(previewDate);
-  const isToday = isoDate(Date.now()) === previewDate;
-  const [winStart, setWinStart] = useState<number>(() => isToday ? Math.floor(new Date().getHours() / WINDOW_H) * WINDOW_H : 6);
+  const now = useNow();
+  const isToday = isoDate(now) === previewDate;
+  const nowWindow = Math.floor(new Date(now).getHours() / WINDOW_H) * WINDOW_H;
+  const [winStart, setWinStart] = useState<number>(() => isToday ? nowWindow : 6);
   const [sel, setSel] = useState<{ channelId: string; blockId: string }>();
 
   const start = dayStart + winStart * HOUR, end = start + WINDOW_H * HOUR;
+  const nowInView = isToday && now >= start && now < end;
+  const nowPct = ((now - start) / (end - start)) * 100;
+  const jumpToNow = () => { setSel(undefined); setPreviewDate(isoDate(now)); setWinStart(nowWindow); };
   const selBlock: ScheduledBlock | undefined = sel ? sims.get(sel.channelId)?.blocks.find((b) => b.id === sel.blockId) : undefined;
   const showTitle = (id?: string) => library.shows.find((s) => s.id === id)?.title;
-  const now = Date.now();
 
   return (
     <div>
@@ -34,6 +40,9 @@ export default function GuidePage() {
         <div className="tabs">
           {[0, 6, 12, 18].map((h) => <button key={h} className={winStart === h ? 'on' : ''} onClick={() => setWinStart(h)}>{String(h).padStart(2, '0')}:00</button>)}
         </div>
+        <button className={`btn sm now-btn${nowInView ? ' on' : ''}`} onClick={jumpToNow} title="Jump to what is airing right now">
+          <i />Now · {fmtClock(now)}
+        </button>
         <div className="grow" />
         <DateBar onChange={() => setSel(undefined)} />
       </div>
@@ -51,6 +60,7 @@ export default function GuidePage() {
                 {Array.from({ length: WINDOW_H * 2 + 1 }, (_, i) => start + i * 30 * 60000).map((t, i) => (
                   <span key={t} style={{ left: `${(i / (WINDOW_H * 2)) * 100}%`, opacity: i % 2 ? 0.5 : 1 }}>{i === WINDOW_H * 2 ? '' : fmtClock(t)}</span>
                 ))}
+                {nowInView && <span className="nowflag" style={{ left: `${nowPct}%` }}>{fmtClock(now)}</span>}
               </div>
             </div>
             {sorted.map((ch) => {
@@ -85,13 +95,15 @@ export default function GuidePage() {
                         );
                       });
                     })}
-                    {isToday && now >= start && now < end && <div className="nowline" style={{ left: `${((now - start) / (end - start)) * 100}%` }} />}
+                    {nowInView && <div className="nowline" style={{ left: `${nowPct}%` }} />}
                   </div>
                 </div>
               );
             })}
             <div className="legend" style={{ marginTop: 10 }}>
               <span className="muted">{WINDOW_H}-hour window · one span per programme, breaks included · click to inspect the block</span>
+              {isToday && !nowInView && <span className="muted">· now is {fmtClock(now)}, outside this window</span>}
+              {!isToday && <span className="muted">· not today: press Now to see what's airing</span>}
             </div>
           </div>
           <div>

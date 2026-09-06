@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildStubLibrary, defaultChannels, defaultClocks, defaultPools, planPublish, mergePlayout, DAY, HOUR, MIN } from '../src/index';
+import { buildStubLibrary, defaultChannels, defaultClocks, defaultPools, planPublish, mergePlayout, mergeTimeline, compactBlocks, expandBlocks, blocksFromPlayout, DAY, HOUR, MIN } from '../src/index';
 import type { Channel, Checkpoint, Ruleset } from '../src/index';
 
 const library = buildStubLibrary();
@@ -62,5 +62,34 @@ describe('publish planning', () => {
     const e = plans.find((p) => p.channel.id === retro.id)!, w = plans.find((p) => p.channel.id === 'ch-west')!;
     expect(w.boundary).toBe(e.boundary + 3 * HOUR);
     expect(w.blocks[0]!.start).toBe(e.blocks[0]!.start + 3 * HOUR);
+  });
+});
+
+describe('published block timelines', () => {
+  const [plan] = planPublish([retro], base, { now, horizonDays: 1, checkpoints: {} });
+
+  it('compact form round-trips through the library', () => {
+    const compact = compactBlocks(plan!.blocks);
+    expect(JSON.stringify(compact).length).toBeLessThan(JSON.stringify(plan!.blocks).length);
+    expect(expandBlocks(compact, library)).toEqual(plan!.blocks);
+  });
+
+  it('merging keeps published blocks before the boundary and takes the plan after it', () => {
+    const later = now + 3 * HOUR;
+    const [second] = planPublish([retro], base, { now: later, horizonDays: 1, checkpoints: { [retro.id]: plan!.checkpoint } });
+    const keepFrom = now - DAY;
+    const merged = mergeTimeline(plan!.blocks, second!.blocks, second!.boundary, keepFrom);
+    expect(merged.filter((b) => b.start < second!.boundary)).toEqual(plan!.blocks.filter((b) => b.start < second!.boundary && b.end > keepFrom));
+    expect(merged.filter((b) => b.start >= second!.boundary)).toEqual(second!.blocks.filter((b) => b.start >= second!.boundary));
+    expect(merged.every((b, i) => i === 0 || b.start >= merged[i - 1]!.start)).toBe(true);
+  });
+
+  it('recovers blocks from a playout file already on disk', () => {
+    const file = plan!.files[0]!;
+    const [block] = blocksFromPlayout(file.playout, library, { channel: retro, boundaryMs: plan!.boundary });
+    const expected = plan!.blocks.flatMap((b) => b.entries).filter((e) => e.start < plan!.boundary && e.start >= file.start);
+    expect(block!.entries.map((e) => e.id)).toEqual(expected.map((e) => e.id));
+    expect(block!.entries.filter((e) => e.role === 'program').map((e) => e.partIndex)).toEqual(expected.filter((e) => e.role === 'program').map((e) => e.partIndex));
+    expect(block!.end).toBeLessThanOrEqual(plan!.boundary);
   });
 });

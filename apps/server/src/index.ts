@@ -29,7 +29,15 @@ function body(req: http.IncomingMessage): Promise<Buffer> {
 
 // ---- rules / library / settings
 route('GET', '/api/rules', (_r, res) => json(res, store.rules() ?? {}));
-route('PUT', '/api/rules', async (req, res) => { store.saveRules(JSON.parse((await body(req)).toString()) as RulesSnapshot); schedulePublish(); res.end('ok'); });
+/** Only these parts of a rules snapshot change the schedule; the preview date or selection do not. */
+const scheduleRules = (r: RulesSnapshot | undefined) => JSON.stringify(r ? [r.pools, r.clocks, r.channels] : null);
+route('PUT', '/api/rules', async (req, res) => {
+  const next = JSON.parse((await body(req)).toString()) as RulesSnapshot;
+  const changed = scheduleRules(store.rules()) !== scheduleRules(next);
+  store.saveRules(next);
+  if (changed) schedulePublish();
+  res.end('ok');
+});
 route('GET', '/api/library', (_r, res) => {
   if (!fs.existsSync(files.library)) { json(res, {}, 404); return; }
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -112,6 +120,13 @@ function schedulePublish() {
 }
 route('POST', '/api/publish', (_r, res) => { try { json(res, publishNow()); } catch (e) { json(res, { error: (e as Error).message }, 500); } });
 route('GET', '/api/publish/status', (_r, res) => json(res, { last: lastPublish() ?? null, nextPublishAt: nextPublishAt ?? null }));
+/** What was actually published: per-channel block timelines plus the checkpoints the next publish will continue from. */
+route('GET', '/api/published', (_r, res) => {
+  const last = lastPublish();
+  const timelines: Record<string, unknown> = {};
+  for (const c of store.rules()?.channels ?? []) { const t = store.timeline(c.id); if (t) timelines[c.id] = t; }
+  json(res, { at: last?.at ?? null, checkpoints: store.checkpoints(), timelines });
+});
 
 // ---- live breaks: Next asks for the next item while inside a dynamic placeholder
 const livePlayed: Record<string, number> = {};
@@ -162,4 +177,15 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`mimicTV service on http://localhost:${PORT}  data: ${DATA}`);
   restartTimer();
+});
+
+// `vite-node --watch` re-runs this file on every change without tearing the old run down, so
+// release the port and stop the old timers first or the new run dies with EADDRINUSE and the
+// stale code keeps serving.
+declare global { interface ImportMeta { hot?: { on(event: string, cb: () => void): void } } }
+import.meta.hot?.on('vite:beforeFullReload', () => {
+  if (timer) clearInterval(timer);
+  clearTimeout(debounce);
+  server.closeAllConnections();
+  server.close();
 });

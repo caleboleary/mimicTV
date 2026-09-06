@@ -3,10 +3,17 @@ import { persist } from 'zustand/middleware';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import {
   buildStubLibrary, defaultChannels, defaultClocks, defaultPools, defaultAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS, MIN, HOUR,
-  type Channel, type Clock, type Library, type Pool, type MediaKind,
+  type Channel, type Checkpoint, type Clock, type CompactBlock, type Library, type Pool, type MediaKind,
 } from '@mimictv/core';
 
 const LIBRARY_KEY = 'mimictv-library';
+
+/** What the service last wrote for Next: the blocks behind the playout files, and where the next publish continues from. */
+export interface Published {
+  at: number | null;
+  checkpoints: Record<string, Checkpoint | undefined>;
+  timelines: Record<string, CompactBlock[] | undefined>;
+}
 
 export function isoDate(ms: number): string {
   const d = new Date(ms);
@@ -27,6 +34,8 @@ interface State {
   channels: Channel[];
   selectedChannelId: string;
   previewDate: string;
+  /** Undefined until the service has answered; the preview then falls back to simulating from scratch. */
+  published?: Published;
   selectChannel(id: string): void;
   setPreviewDate(iso: string): void;
   updateClock(id: string, patch: (c: Clock) => Clock): void;
@@ -316,14 +325,16 @@ export async function hydrateLibrary(): Promise<void> {
   syncing = true;
   try {
     const timeout = new Promise<undefined>((r) => setTimeout(() => r(undefined), 3000));
-    const [serverRules, serverLib, saved] = await Promise.all([
+    const [serverRules, serverLib, published, saved] = await Promise.all([
       getJson<RulesSnapshot>('/api/rules'),
       getJson<{ library: Library; source: string }>('/api/library'),
+      getJson<Published>('/api/published'),
       Promise.race([idbGet<{ library: Library; source: string }>(LIBRARY_KEY), timeout]).catch(() => undefined),
     ]);
     serverRulesSeen = !!serverRules?.pools;
     serverLibSeen = !!serverLib?.library;
     if (serverRules?.pools) useStore.setState(serverRules);
+    if (published?.checkpoints) useStore.setState({ published });
     const lib = serverLib?.library ? serverLib : saved?.library ? saved : undefined;
     if (lib) {
       useStore.setState({ library: lib.library, librarySource: lib.source });
@@ -345,6 +356,14 @@ export async function hydrateLibrary(): Promise<void> {
   if (!serverLibSeen && s0.librarySource !== 'stub') {
     fetch('/api/library', { method: 'PUT', body: JSON.stringify({ library: s0.library, source: s0.librarySource }), headers: { 'Content-Type': 'application/json' } }).catch(() => {});
   }
+
+  // Follow the service's publishes so the preview keeps matching what Next is playing.
+  setInterval(async () => {
+    const status = await getJson<{ last: { at: number } | null }>('/api/publish/status');
+    if (!status || status.last?.at === useStore.getState().published?.at) return;
+    const published = await getJson<Published>('/api/published');
+    if (published?.checkpoints) useStore.setState({ published });
+  }, 10_000);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastRules = '';

@@ -38,6 +38,8 @@ Open **Setup**.
 
 Next reads the playout folder and picks the file whose name covers "now", re-reading on every lookup, so mimicTV writes every file atomically and keeps a few days ahead (default 3), topping up every few hours. Each channel has a **checkpoint**: cursor state at a moment, plus the rules in force then. Replaying those rules is deterministic, so a republish reproduces what was already written up to the first break after now, then continues with the current rules. Editing a channel therefore changes its future from the next break and never the item that's playing. Untouched channels reproduce their old timeline exactly.
 
+The service also keeps the blocks behind those files in `data/timeline/<channel>.json` and serves them with the checkpoints at `/api/published`. The app previews from that, not from scratch: what was published stays put up to the next boundary and the current rules take over from there, so the Guide shows what Next is actually playing and an edit visibly re-flows from the next break.
+
 Channels flagged "pick ads at playback" write each break as a Next `dynamic` placeholder that calls back to `/dynamic/<channel>` on the service, which picks an ad on the spot.
 
 Storage is JSON on disk on purpose: small, readable, diffable, easy to back up. A play-history database (Node's built-in SQLite) is the natural next step once "when did this ad last air anywhere" becomes a question worth asking.
