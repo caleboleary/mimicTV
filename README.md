@@ -2,6 +2,9 @@
 
 # mimicTV
 
+> **🚧 WIP.** This is an early, actively changing project. It has not yet played a single frame through a real ErsatzTV Next instance. Expect breaking changes, rough edges, and a scheduler that is confidently wrong in new and interesting ways. Not ready for anyone but the curious.
+
+
 A scheduler and UI that produces playout timelines for [ErsatzTV Next](https://github.com/ErsatzTV/next). Next transcodes and streams; mimicTV decides what plays when, and makes setting that up pleasant.
 
 **Status: early, but end to end.** The engine and preview run in the browser; a small Node service scans your media with ffprobe, keeps state on disk, and writes Next's files on a schedule.
