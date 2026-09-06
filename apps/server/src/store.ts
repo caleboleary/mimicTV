@@ -22,6 +22,8 @@ export interface Settings {
     pathMap: { from: string; to: string }[];
     /** URL Next can reach mimicTV on, for live breaks. Empty = write pre-picked ads. */
     resolverUrl: string;
+    /** Next as reached from the user's network, e.g. http://192.168.1.10:8410: the M3U/XMLTV links and the in-app preview use it. */
+    publicUrl: string;
     /** Per-channel normalization defaults written to channel.json. */
     video: { width: number; height: number; bitrateKbps: number; format: string; accel: string };
   };
@@ -29,7 +31,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   library: { roots: [], ffprobe: 'ffprobe' },
-  next: { outputDir: '', horizonDays: 3, refreshHours: 6, pathMap: [], resolverUrl: '', video: { width: 1920, height: 1080, bitrateKbps: 4000, format: 'h264', accel: '' } },
+  next: { outputDir: '', horizonDays: 3, refreshHours: 6, pathMap: [], resolverUrl: '', publicUrl: '', video: { width: 1920, height: 1080, bitrateKbps: 4000, format: 'h264', accel: '' } },
 };
 
 export function readJson<T>(file: string): T | undefined {

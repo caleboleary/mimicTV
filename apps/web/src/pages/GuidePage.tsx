@@ -1,14 +1,26 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { blocksInWindow, fmtClock, HOUR, DAY, type ScheduledBlock } from '@mimictv/core';
+import { blocksInWindow, fmtClock, HOUR, DAY, type Channel, type ScheduledBlock, type TimelineEntry } from '@mimictv/core';
 import { useStore, dateStart, isoDate } from '../store/store';
 import { useSims } from '../store/useSim';
 import { useNow } from '../store/useNow';
 import { DateBar } from '../components/DayPreview';
 import BlockDetail from '../components/BlockDetail';
+import Player from '../components/Player';
 import { entryColor } from '../colors';
 
 const WINDOW_H = 6;
+
+/** Runs of consecutive non-program entries: one wash per break, whatever it holds. */
+function breakRuns(entries: TimelineEntry[]): { s: number; f: number }[] {
+  const runs: { s: number; f: number }[] = [];
+  for (const e of entries) {
+    if (e.role === 'program') continue;
+    const last = runs[runs.length - 1];
+    if (last && e.start - last.f < 1000) last.f = e.end; else runs.push({ s: e.start, f: e.end });
+  }
+  return runs;
+}
 
 export default function GuidePage() {
   const nav = useNavigate();
@@ -25,6 +37,8 @@ export default function GuidePage() {
   const nowWindow = Math.floor(new Date(now).getHours() / WINDOW_H) * WINDOW_H;
   const [winStart, setWinStart] = useState<number>(() => isToday ? nowWindow : 6);
   const [sel, setSel] = useState<{ channelId: string; blockId: string }>();
+  const [watch, setWatch] = useState<Channel>();
+  const nextUrl = useStore((s) => s.nextUrl);
 
   const start = dayStart + winStart * HOUR, end = start + WINDOW_H * HOUR;
   const nowInView = isToday && now >= start && now < end;
@@ -32,6 +46,11 @@ export default function GuidePage() {
   const jumpToNow = () => { setSel(undefined); setPreviewDate(isoDate(now)); setWinStart(nowWindow); };
   const selBlock: ScheduledBlock | undefined = sel ? sims.get(sel.channelId)?.blocks.find((b) => b.id === sel.blockId) : undefined;
   const showTitle = (id?: string) => library.shows.find((s) => s.id === id)?.title;
+  const onAir = (ch: Channel): string | undefined => {
+    const sim = sims.get(ch.id);
+    const e = sim && blocksInWindow(sim, now, now + 1)[0]?.entries.find((x) => x.start <= now && now < x.end);
+    return e && (e.role === 'program' ? showTitle(e.item.showId) ?? e.item.title : `break · ${e.item.title}`);
+  };
 
   return (
     <div>
@@ -68,7 +87,10 @@ export default function GuidePage() {
               const blocks = sim ? blocksInWindow(sim, start, end) : [];
               return (
                 <div className="guide-row" key={ch.id}>
-                  <div className="chan" onClick={() => nav(`/channels/${ch.id}`)}><b>{ch.number}</b><span>{ch.name}</span></div>
+                  <div className="chan" onClick={() => nav(`/channels/${ch.id}`)}>
+                    <b>{ch.number}</b><span>{ch.name}</span>
+                    <button className="watch" title={nextUrl ? 'Watch this channel now' : 'Set Next\'s address in Setup to watch here'} onClick={(e) => { e.stopPropagation(); if (nextUrl) setWatch(ch); else nav('/setup'); }}>▶</button>
+                  </div>
                   <div className="track">
                     {blocks.flatMap((b) => {
                       // One span per programme, like an EPG: from a program's first part to the next program (or block end).
@@ -81,10 +103,12 @@ export default function GuidePage() {
                         const w = ((f - s) / (end - start)) * 100;
                         const dim = sel != null && !(sel.channelId === ch.id && sel.blockId === b.id);
                         const isProgram = e.role === 'program';
+                        const runs = isProgram ? breakRuns(b.entries.filter((x) => x.end > s && x.start < f)) : [];
                         return (
                           <div key={e.id} className={`seg ${isProgram ? 'program' : 'filler'}${dim ? ' dim' : ''}`} title={`${fmtClock(s0)} ${showTitle(e.item.showId) ?? e.item.title}`}
                             style={{ left: `${((s - start) / (end - start)) * 100}%`, width: `${w}%`, background: isProgram ? entryColor(e.item, e.role) : undefined }}
                             onClick={() => setSel((cur) => (cur?.blockId === b.id ? undefined : { channelId: ch.id, blockId: b.id }))}>
+                            {runs.map((r) => <i key={r.s} className="brk" style={{ left: `${((Math.max(r.s, s) - s) / (f - s)) * 100}%`, width: `${((Math.min(r.f, f) - Math.max(r.s, s)) / (f - s)) * 100}%` }} />)}
                             {isProgram && w > 3 && (
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {showTitle(e.item.showId) ?? e.item.title}
@@ -101,7 +125,7 @@ export default function GuidePage() {
               );
             })}
             <div className="legend" style={{ marginTop: 10 }}>
-              <span className="muted">{WINDOW_H}-hour window · one span per programme, breaks included · click to inspect the block</span>
+              <span className="muted">{WINDOW_H}-hour window · one span per programme, darker bands are its breaks · click to inspect the block · ▶ to watch</span>
               {isToday && !nowInView && <span className="muted">· now is {fmtClock(now)}, outside this window</span>}
               {!isToday && <span className="muted">· not today: press Now to see what's airing</span>}
             </div>
@@ -118,6 +142,7 @@ export default function GuidePage() {
           </div>
         </div>
       )}
+      {watch && <Player channel={watch} nowTitle={onAir(watch)} onClose={() => setWatch(undefined)} />}
       <div className="muted small" style={{ marginTop: 10 }}>{new Date(dayStart).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} · showing {fmtClock(start)}–{fmtClock(Math.min(end, dayStart + DAY))}</div>
     </div>
   );

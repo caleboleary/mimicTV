@@ -6,7 +6,7 @@ mimicTV owns all scheduling meaning. ErsatzTV Next is a timeline player; it neve
 
 `Show` and `MediaItem`. An item has a kind (`episode`, `movie`, `commercial`, `network-id`, `bumper`, `filler`), a duration, tags, and a list of **break points** (ms offsets) with a provenance (`chapters`, `blackdetect`, `manual`, `none`). Filler can be `trimmable` (cut to any length) and `still` (an image whose audio is synthesized silence).
 
-The POC uses a deterministic stub library. Real ingest (local folders + ffprobe, then media servers) replaces `buildStubLibrary()` without touching the engine.
+The library comes from a real scan (local folders + ffprobe) or an imported probe file; the engine's tests run against a deterministic stub library under `packages/core/test/fixtures`.
 
 ## Pools
 

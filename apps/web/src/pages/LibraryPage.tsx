@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  parseProbeJsonl, importProbeLibrary, starterRules, fmtDuration, poolItems, buildDummyCommercials, buildDummyIdsAndFiller, DUMMY_TAG,
+  parseProbeJsonl, importProbeLibrary, starterRules, fmtDuration, poolItems,
   type MediaKind, type ProbeHeader, type ProbeRecord, type Pool,
 } from '@mimictv/core';
 import { useStore } from '../store/store';
@@ -27,7 +27,7 @@ export default function LibraryPage() {
 
   return (
     <div>
-      <div className="toolbar"><h1>Library</h1><div className="grow" /><span className="muted small">{source === 'stub' ? 'stub library' : source}</span></div>
+      <div className="toolbar"><h1>Library</h1><div className="grow" /><span className="muted small">{source || 'no library yet'}</span></div>
       <div className="subtabs">
         {(['overview', 'shows', 'collections', 'import'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0]!.toUpperCase() + t.slice(1)}</button>)}
       </div>
@@ -41,11 +41,6 @@ export default function LibraryPage() {
 
 function Overview({ withBreaks, eps }: { withBreaks: number; eps: number }) {
   const library = useStore((s) => s.library);
-  const source = useStore((s) => s.librarySource);
-  const useStub = useStore((s) => s.useStubLibrary);
-  const patchLibrary = useStore((s) => s.patchLibrary);
-  const dummyCount = library.items.filter((i) => i.tags.includes(DUMMY_TAG)).length;
-  const addDummy = (items: ReturnType<typeof buildDummyCommercials>) => patchLibrary((lib) => ({ ...lib, items: [...lib.items.filter((i) => !items.some((n) => n.id === i.id)), ...items] }));
   const counts = KINDS.map((k) => [k, library.items.filter((i) => i.kind === k).length] as const);
   return (
     <>
@@ -59,21 +54,6 @@ function Overview({ withBreaks, eps }: { withBreaks: number; eps: number }) {
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
           <Link to="/setup" className="btn sm primary">Scan folders / rescan</Link>
           <span className="muted small">Set the folders once under Setup; rescan whenever files change. Channels keep their settings.</span>
-          <div className="grow" />
-          {source !== 'stub' && <button className="btn sm" onClick={useStub}>Back to stub library</button>}
-        </div>
-      </div>
-      <div className="panel">
-        <div className="toolbar" style={{ marginBottom: 6 }}>
-          <h3>Dummy interstitials</h3>
-          <span className="muted small">fake commercials, IDs, and filler so breaks have something to hold</span>
-          <div className="grow" />
-          {dummyCount > 0 && <span className="badge">{dummyCount} dummy items</span>}
-        </div>
-        <div className="toolbar" style={{ marginBottom: 0 }}>
-          <button className="btn sm" onClick={() => addDummy(buildDummyCommercials(100))}>Add 100 commercials (mostly 15s / 30s)</button>
-          <button className="btn sm" onClick={() => addDummy(buildDummyIdsAndFiller())}>Add 6 network IDs + static card + glitch loops</button>
-          {dummyCount > 0 && <button className="btn sm danger" onClick={() => patchLibrary((lib) => ({ ...lib, items: lib.items.filter((i) => !i.tags.includes(DUMMY_TAG)) }))}>Remove all dummy items</button>}
         </div>
       </div>
     </>
@@ -179,7 +159,6 @@ function Collections() {
 }
 
 function Import() {
-  const library = useStore((s) => s.library);
   const setLibrary = useStore((s) => s.setLibrary);
   const replaceRules = useStore((s) => s.replaceRules);
   const [fileName, setFileName] = useState<string>();
@@ -197,8 +176,7 @@ function Import() {
   const onFile = async (f: File | undefined) => { if (!f) return; setBusy(true); try { loadText(f.name, await readBlobText(f, f.name)); } finally { setBusy(false); } };
   const apply = (mode: 'starter' | 'keep' | 'scratch') => {
     if (!preview) return;
-    const dummies = mode === 'scratch' ? [] : library.items.filter((i) => i.tags.includes(DUMMY_TAG));
-    setLibrary({ ...preview.library, items: [...preview.library.items, ...dummies] }, fileName ?? 'import');
+    setLibrary(preview.library, fileName ?? 'import');
     if (mode === 'starter') replaceRules(starterRules(preview.library));
     if (mode === 'scratch') replaceRules({ pools: [], clocks: [], channels: [] });
   };

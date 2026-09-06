@@ -8,7 +8,7 @@ const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'bum
 
 interface Settings {
   library: { roots: { path: string; kind?: MediaKind }[]; ffprobe: string };
-  next: { outputDir: string; horizonDays: number; refreshHours: number; pathMap: { from: string; to: string }[]; resolverUrl: string; video: { width: number; height: number; bitrateKbps: number; format: string; accel: string } };
+  next: { outputDir: string; horizonDays: number; refreshHours: number; pathMap: { from: string; to: string }[]; resolverUrl: string; publicUrl: string; video: { width: number; height: number; bitrateKbps: number; format: string; accel: string } };
 }
 interface ScanStatus { running: boolean; total: number; done: number; failed: number; current?: string; error?: string; finishedAt?: number; roots?: { root: string; kind: string; count: number; episodes: number; withChapters: number }[] }
 interface PublishResult { at: number; outputDir: string; error?: string; channels: { id: string; name: string; files: string[]; boundary: number }[] }
@@ -19,6 +19,7 @@ async function send(url: string, method: string, body?: unknown): Promise<Respon
 
 export default function SetupPage() {
   const setLibrary = useStore((s) => s.setLibrary);
+  const setNextUrl = useStore((s) => s.setNextUrl);
   const channels = useStore((s) => s.channels);
   const [health, setHealth] = useState<Health | null | undefined>();
   const [settings, setSettings] = useState<Settings>();
@@ -143,6 +144,7 @@ export default function SetupPage() {
           <label className="field" style={{ gridColumn: '1 / -1' }}>Output folder<input type="text" placeholder="/mnt/user/appdata/ersatztv-next" value={settings.next.outputDir} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, outputDir: e.target.value } }))} /></label>
           <label className="field">Days written ahead<input type="number" min={1} max={14} value={settings.next.horizonDays} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, horizonDays: Math.max(1, Number(e.target.value)) } }))} /></label>
           <label className="field">Top up every (hours)<input type="number" min={0.25} step={0.25} value={settings.next.refreshHours} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, refreshHours: Math.max(0.25, Number(e.target.value)) } }))} /></label>
+          <label className="field" style={{ gridColumn: '1 / -1' }}>Where Next is on your network<input type="text" placeholder="http://192.168.1.10:8410" value={settings.next.publicUrl} onChange={(e) => { setNextUrl(e.target.value); update((s) => ({ ...s, next: { ...s.next, publicUrl: e.target.value } })); }} /><span className="muted small">TV apps get their M3U and guide from here (links in the sidebar), and ▶ on the Guide plays from it.</span></label>
         </div>
         <Disclosure label="Paths look different on the Next machine">
           <p className="muted small" style={{ marginTop: 0 }}>If the library was scanned at one path but Next sees the same files at another, map the prefix. Left: as scanned. Right: as Next sees it.</p>

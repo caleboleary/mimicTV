@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 import {
-  buildStubLibrary, defaultChannels, defaultClocks, defaultPools, defaultAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS, MIN, HOUR,
+  newChannelAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS, MIN, HOUR,
   type Channel, type Checkpoint, type Clock, type CompactBlock, type Library, type Pool, type MediaKind,
 } from '@mimictv/core';
 
@@ -36,6 +36,9 @@ interface State {
   previewDate: string;
   /** Undefined until the service has answered; the preview then falls back to simulating from scratch. */
   published?: Published;
+  /** Next as reached from this network (Setup), for the M3U/XMLTV links and the in-app preview. */
+  nextUrl: string;
+  setNextUrl(url: string): void;
   selectChannel(id: string): void;
   setPreviewDate(iso: string): void;
   updateClock(id: string, patch: (c: Clock) => Clock): void;
@@ -64,20 +67,18 @@ interface State {
   setLibrary(library: Library, source: string): void;
   patchLibrary(fn: (lib: Library) => Library): void;
   replaceRules(rules: { pools: Pool[]; clocks: Clock[]; channels: Channel[] }): void;
-  useStubLibrary(): void;
-  reset(): void;
 }
 
 function initial() {
-  const channels = defaultChannels();
   return {
-    library: buildStubLibrary(),
-    librarySource: 'stub',
-    pools: defaultPools(),
-    clocks: defaultClocks(),
-    channels,
-    selectedChannelId: channels[0]!.id,
-    previewDate: isoDate(channels[0]!.anchorMs + 24 * 3600 * 1000),
+    library: { shows: [], items: [] } as Library,
+    librarySource: '',
+    pools: [] as Pool[],
+    clocks: [] as Clock[],
+    channels: [] as Channel[],
+    selectedChannelId: '',
+    previewDate: isoDate(Date.now()),
+    nextUrl: '',
   };
 }
 
@@ -95,6 +96,7 @@ export const useStore = create<State>()(
       ...initial(),
       selectChannel: (id) => set({ selectedChannelId: id }),
       setPreviewDate: (iso) => set({ previewDate: iso }),
+      setNextUrl: (nextUrl) => set({ nextUrl }),
       updateClock: (id, patch) => set((s) => ({ clocks: s.clocks.map((c) => (c.id === id ? patch(c) : c)) })),
       addClock: (clock) => set((s) => ({ clocks: [...s.clocks, clock] })),
       removeClock: (id) => set((s) => ({ clocks: s.clocks.filter((c) => c.id !== id) })),
@@ -133,7 +135,7 @@ export const useStore = create<State>()(
         };
         const channel: Channel = {
           id, number: String(n), name, tvgId: `mimic.${n}`, group: 'mimicTV',
-          dayparts: [{ startMinute: 0, clockId: clock.id }], anchorMs: defaultAnchorMs(), seed: id,
+          dayparts: [{ startMinute: 0, clockId: clock.id }], anchorMs: newChannelAnchorMs(), seed: id,
         };
         set({ pools: [...s.pools, showPool, ...extra], clocks: [...s.clocks, clock], channels: [...s.channels, channel], selectedChannelId: id });
         return id;
@@ -246,15 +248,10 @@ export const useStore = create<State>()(
       patchLibrary: (fn) => {
         const s0 = get();
         const library = fn(s0.library);
-        if (s0.librarySource !== 'stub') idbSet(LIBRARY_KEY, { library, source: s0.librarySource }).catch(() => {});
+        idbSet(LIBRARY_KEY, { library, source: s0.librarySource }).catch(() => {});
         set({ library });
       },
       replaceRules: (rules) => set({ ...rules, selectedChannelId: rules.channels[0]?.id ?? '' }),
-      useStubLibrary: () => {
-        idbDel(LIBRARY_KEY).catch(() => {});
-        set({ library: buildStubLibrary(), librarySource: 'stub' });
-      },
-      reset: () => { idbDel(LIBRARY_KEY).catch(() => {}); set(initial()); },
     }),
     {
       name: 'mimictv-poc',
@@ -318,29 +315,29 @@ let serverRulesSeen = false;
 let serverLibSeen = false;
 
 /**
- * Load state before first render: data/*.json on the dev server first, then IndexedDB /
- * localStorage, then the stub. Afterwards mirror every change back to the dev server.
+ * Load state before first render: data/*.json on the service first, then IndexedDB /
+ * localStorage. Afterwards mirror every change back to the service.
  */
 export async function hydrateLibrary(): Promise<void> {
   syncing = true;
   try {
     const timeout = new Promise<undefined>((r) => setTimeout(() => r(undefined), 3000));
-    const [serverRules, serverLib, published, saved] = await Promise.all([
+    const [serverRules, serverLib, published, settings, saved] = await Promise.all([
       getJson<RulesSnapshot>('/api/rules'),
       getJson<{ library: Library; source: string }>('/api/library'),
       getJson<Published>('/api/published'),
+      getJson<{ next?: { publicUrl?: string } }>('/api/settings'),
       Promise.race([idbGet<{ library: Library; source: string }>(LIBRARY_KEY), timeout]).catch(() => undefined),
     ]);
     serverRulesSeen = !!serverRules?.pools;
     serverLibSeen = !!serverLib?.library;
     if (serverRules?.pools) useStore.setState(serverRules);
     if (published?.checkpoints) useStore.setState({ published });
+    if (settings?.next?.publicUrl) useStore.setState({ nextUrl: settings.next.publicUrl });
     const lib = serverLib?.library ? serverLib : saved?.library ? saved : undefined;
     if (lib) {
       useStore.setState({ library: lib.library, librarySource: lib.source });
       idbSet(LIBRARY_KEY, lib).catch(() => {});
-    } else if (useStore.getState().librarySource !== 'stub') {
-      useStore.setState({ librarySource: 'stub' });
     }
   } finally {
     syncing = false;
@@ -353,7 +350,7 @@ export async function hydrateLibrary(): Promise<void> {
     const rules: RulesSnapshot = { pools: s0.pools, clocks: s0.clocks, channels: s0.channels, selectedChannelId: s0.selectedChannelId, previewDate: s0.previewDate, librarySource: s0.librarySource };
     fetch('/api/rules', { method: 'PUT', body: JSON.stringify(rules), headers: { 'Content-Type': 'application/json' } }).catch(() => {});
   }
-  if (!serverLibSeen && s0.librarySource !== 'stub') {
+  if (!serverLibSeen && s0.library.items.length > 0) {
     fetch('/api/library', { method: 'PUT', body: JSON.stringify({ library: s0.library, source: s0.librarySource }), headers: { 'Content-Type': 'application/json' } }).catch(() => {});
   }
 
@@ -382,8 +379,7 @@ export async function hydrateLibrary(): Promise<void> {
       }
       if (libChanged) {
         lastLib = s.library;
-        const body = s.librarySource === 'stub' ? '{}' : JSON.stringify({ library: s.library, source: s.librarySource });
-        fetch('/api/library', { method: 'PUT', body, headers: { 'Content-Type': 'application/json' } }).catch(() => {});
+        fetch('/api/library', { method: 'PUT', body: JSON.stringify({ library: s.library, source: s.librarySource }), headers: { 'Content-Type': 'application/json' } }).catch(() => {});
       }
     }, 600);
   });

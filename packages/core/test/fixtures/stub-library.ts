@@ -1,6 +1,6 @@
-import type { Library, MediaItem, Show } from '../types';
-import { rngFor } from '../rng';
-import { MIN, SEC } from '../time';
+import type { Library, MediaItem, Show } from '../../src/types';
+import { rngFor } from '../../src/rng';
+import { MIN, SEC } from '../../src/time';
 
 interface ShowSpec {
   id: string;

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildStubLibrary, defaultChannels, defaultClocks, defaultPools, planPublish, mergePlayout, mergeTimeline, compactBlocks, expandBlocks, blocksFromPlayout, DAY, HOUR, MIN } from '../src/index';
+import { planPublish, mergePlayout, mergeTimeline, compactBlocks, expandBlocks, blocksFromPlayout, DAY, HOUR, MIN } from '../src/index';
 import type { Channel, Checkpoint, Ruleset } from '../src/index';
+import { buildStubLibrary } from './fixtures/stub-library';
+import { defaultChannels, defaultClocks, defaultPools } from './fixtures/demo-rules';
 
 const library = buildStubLibrary();
 const base: Ruleset = { library, pools: defaultPools(), clocks: defaultClocks() };

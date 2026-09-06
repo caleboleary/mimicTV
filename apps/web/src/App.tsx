@@ -4,10 +4,10 @@ import ChannelsPage from './pages/ChannelsPage';
 import ChannelEditorPage from './pages/ChannelEditorPage';
 import LibraryPage from './pages/LibraryPage';
 import SetupPage from './pages/SetupPage';
+import IptvLinks from './components/IptvLinks';
 import { useStore } from './store/store';
 
 export default function App() {
-  const reset = useStore((s) => s.reset);
   const source = useStore((s) => s.librarySource);
   return (
     <div className="app">
@@ -18,8 +18,8 @@ export default function App() {
         <NavLink to="/library">Library</NavLink>
         <NavLink to="/setup">Setup</NavLink>
         <div className="spacer" />
-        <button className="btn sm" onClick={() => { if (confirm('Reset everything to the stub library and demo channels?')) reset(); }}>Reset to defaults</button>
-        <div className="small muted" style={{ padding: '10px 10px 0' }}>POC · {source === 'stub' ? 'stub library' : source} · schema 0.0.3</div>
+        <IptvLinks />
+        <div className="small muted" style={{ padding: '10px 10px 0' }}>{source || 'no library yet'} · schema 0.0.3</div>
       </nav>
       <main className="main">
         <Routes>

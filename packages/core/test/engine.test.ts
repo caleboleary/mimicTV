@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  itemMatches, libraryFolders, candidateCuts, buildStubLibrary, defaultChannels, defaultClocks, defaultPools, simulate, entriesInWindow,
+  itemMatches, libraryFolders, candidateCuts, simulate, entriesInWindow,
   toPlayout, playoutFileName, programmesFor, toXmltv, DAY, MIN, distanceToBoundary,
 } from '../src/index';
+import { buildStubLibrary } from './fixtures/stub-library';
+import { defaultChannels, defaultClocks, defaultPools } from './fixtures/demo-rules';
 import type { Ruleset } from '../src/index';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';

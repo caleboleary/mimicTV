@@ -25,7 +25,7 @@ npm test           # engine + publish tests, one per scenario in docs/design-not
 npm run typecheck
 ```
 
-Everything you build is saved by the service to `data/rules.json` and `data/library.json` (atomic writes), with a copy in the browser as a fallback. "Reset to defaults" in the sidebar clears it all. Set `MIMICTV_DATA` to keep state elsewhere, e.g. a Docker volume.
+Everything you build is saved by the service to `data/rules.json` and `data/library.json` (atomic writes), with a copy in the browser as a fallback. Set `MIMICTV_DATA` to keep state elsewhere, e.g. a Docker volume.
 
 ## Point it at your media and at Next
 
@@ -33,6 +33,7 @@ Open **Setup**.
 
 1. **Where your media is.** Add your top-level folders (TV, commercials, bumpers, IDs, filler) and press **Scan now**. The service runs ffprobe over them, keeps durations, chapters, and stream facts, and builds the library. Rescan whenever files change; channels keep their settings. If ffprobe only exists in a container, set the command to `docker exec -i ersatztv ffprobe` and use container paths.
 2. **Where Next reads from.** Set the output folder and press **Publish now**. mimicTV writes `lineup.json`, `channels/<id>/channel.json` with a `playout/` folder of day files, and `xmltv/<tvg_id>.xml`. Point Next at that `lineup.json`. If Next sees the files at a different path than the scan did, add a path mapping.
+3. **Where Next is on your network**, e.g. `http://192.168.1.10:8410`. The sidebar then offers the M3U and XMLTV links for a TV app (Next serves both), and ▶ next to a channel on the Guide plays it right in the app.
 
 ### How publishing works
 
@@ -56,4 +57,4 @@ On the machine that has the media (needs `ffprobe`):
 
 It writes one JSON line per file: path, duration, chapters, and stream info. Nothing else leaves the box. Useful flags: `-n 50` for a quick test, `-r` to resume an interrupted run, `-j` to gzip the result, `-u http://<mimictv-host>:8787/imports/upload` to send the result straight to the service. The Library page lists everything in `data/imports/` under "Received files"; the file picker on the same page works too. `scripts/receive.py` is an older standalone receiver that still works.
 
-Open the Library page and load the file. Kinds are guessed from folder names (tv, commercials, ids, filler, movies) and can be overridden per root. "Generate starter pools, clocks, channels" builds one channel per program root so the preview lights up immediately. The imported library persists in IndexedDB; "Back to stub library" restores the fake one.
+Open the Library page and load the file. Kinds are guessed from folder names (tv, commercials, ids, filler, movies) and can be overridden per root. "Use library + generate starter channels" builds one channel per program root so the preview lights up immediately. The imported library persists in IndexedDB as a fallback for when the service is down.

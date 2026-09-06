@@ -1,7 +1,6 @@
 export * from './types';
 export * from './time';
 export { rngFor, hashString } from './rng';
-export { buildStubLibrary } from './library/stub';
 export { poolItems, poolShows, itemMatches, termsMatch, libraryFolders } from './engine/pools';
 export { BLACK } from './engine/select';
 export { simulate, simulateAll, shiftSimulation, freshCursors, clockForTime, daypartForTime, bandActiveOn, hardStopAfter, blocksInWindow, entriesInWindow, candidateCuts, adPoolFor } from './engine/schedule';
@@ -11,8 +10,7 @@ export { toXmltv, programmesFor } from './emit/xmltv';
 export { planPublish, mergePlayout, mergeTimeline, blocksFromPlayout, compactBlocks, expandBlocks } from './emit/publish';
 export type { Checkpoint, PublishOptions, ChannelPlan, PlannedFile, CompactBlock } from './emit/publish';
 export type { Programme } from './emit/xmltv';
-export { defaultPools, defaultClocks, defaultChannels, defaultAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS } from './defaults';
+export { newChannelAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS } from './defaults';
 export { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle, slug } from './library/probe-import';
 export type { ProbeRecord, ProbeHeader, RootSummary, ImportOptions } from './library/probe-import';
 export { starterRules } from './defaults';
-export { buildDummyCommercials, buildDummyIdsAndFiller, DUMMY_TAG } from './library/dummy';

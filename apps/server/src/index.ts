@@ -5,7 +5,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { poolItems, rngFor, type Library, type MediaItem, type PlayoutItem } from '@mimictv/core';
+import { poolItems, rngFor, type MediaItem, type PlayoutItem } from '@mimictv/core';
 import { store, files, IMPORTS, DATA, type Settings, type RulesSnapshot, type LibraryFile } from './store';
 import { runScan, scanStatus } from './scan';
 import { publishNow, lastPublish } from './publish';
@@ -44,9 +44,7 @@ route('GET', '/api/library', (_r, res) => {
   fs.createReadStream(files.library).pipe(res);
 });
 route('PUT', '/api/library', async (req, res) => {
-  const b = (await body(req)).toString();
-  if (b === '{}') fs.rmSync(files.library, { force: true }); // back to the stub library
-  else store.saveLibrary(JSON.parse(b) as LibraryFile);
+  store.saveLibrary(JSON.parse((await body(req)).toString()) as LibraryFile);
   schedulePublish();
   res.end('ok');
 });
@@ -85,11 +83,7 @@ route('POST', '/api/scan', async (req, res) => {
   json(res, { started: true });
   const result = await runScan(roots, opts.ffprobe ?? settings.library.ffprobe);
   if (result) {
-    // Keep dummy interstitials the user added, like the Library page's "keep" import does.
-    const prev = store.library()?.library;
-    const dummies = prev?.items.filter((i) => i.tags.includes('dummy')) ?? [];
-    const library: Library = { ...result.library, items: [...result.library.items, ...dummies] };
-    store.saveLibrary({ library, source: `scan ${new Date().toLocaleString()}` });
+    store.saveLibrary({ library: result.library, source: `scan ${new Date().toLocaleString()}` });
     schedulePublish();
   }
 });

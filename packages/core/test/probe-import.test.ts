@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle, starterRules, simulate, DAY, buildDummyCommercials } from '../src/index';
+import { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle, starterRules, simulate, DAY } from '../src/index';
+import { buildDummyCommercials } from './fixtures/dummy';
 
 const text = readFileSync(new URL('./fixtures/probe-sample.jsonl', import.meta.url), 'utf8');
 

@@ -1,6 +1,6 @@
-import type { MediaItem } from '../types';
-import { rngFor } from '../rng';
-import { SEC } from '../time';
+import type { MediaItem } from '../../src/types';
+import { rngFor } from '../../src/rng';
+import { SEC } from '../../src/time';
 
 export const DUMMY_TAG = 'dummy';
 

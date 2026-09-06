@@ -5,9 +5,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  buildStubLibrary, defaultChannels, defaultClocks, defaultPools, simulate, simulateAll, toPlayout, blocksInWindow,
+  simulate, simulateAll, toPlayout, blocksInWindow,
   DAY, HOUR, MIN, SEC,
 } from '../src/index';
+import { buildStubLibrary } from './fixtures/stub-library';
+import { defaultChannels, defaultClocks, defaultPools } from './fixtures/demo-rules';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import schema from '../schema/playout-0.0.3.json';
