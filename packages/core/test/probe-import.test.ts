@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle, starterRules, simulate, DAY } from '../src/index';
+import { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle } from '../src/index';
 import { buildDummyCommercials } from './fixtures/dummy';
 
 const text = readFileSync(new URL('./fixtures/probe-sample.jsonl', import.meta.url), 'utf8');
@@ -49,15 +49,6 @@ describe('probe import', () => {
     const idsRoot = roots.find((r) => r.root.endsWith('/ids'))!.root;
     const { library: lib2 } = importProbeLibrary(parsed.records, { rootKinds: { [idsRoot]: 'filler' } });
     expect(lib2.items.filter((i) => i.kind === 'network-id').length).toBe(0);
-  });
-
-  it('builds starter rules that schedule a day', () => {
-    const rules = starterRules(library);
-    expect(rules.pools.length).toBeGreaterThanOrEqual(4);
-    expect(rules.channels.length).toBe(2);
-    const ch = rules.channels[0]!;
-    const sim = simulate(ch, { library, pools: rules.pools, clocks: rules.clocks }, ch.anchorMs + DAY);
-    expect(sim.blocks.length).toBeGreaterThan(20);
   });
 
   it('parses episode patterns', () => {

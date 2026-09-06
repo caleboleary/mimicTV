@@ -1,20 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  parseProbeJsonl, importProbeLibrary, starterRules, fmtDuration, poolItems, libraryFolders, hiddenBy, showFolder,
-  type MediaKind, type ProbeHeader, type ProbeRecord, type Pool,
+  fmtDuration, poolItems, libraryFolders, hiddenBy, showFolder,
+  type MediaKind, type Pool,
 } from '@mimictv/core';
 import { useStore, useLibrary } from '../store/store';
 import PoolEditor, { MODES } from '../components/PoolEditor';
 
 const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'bumper', 'filler'];
-type Tab = 'overview' | 'shows' | 'folders' | 'collections' | 'import';
+type Tab = 'overview' | 'shows' | 'folders' | 'collections';
 
-async function readBlobText(blob: Blob, name: string): Promise<string> {
-  if (name.endsWith('.gz')) return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
-  return blob.text();
-}
-interface ReceivedFile { name: string; size: number; mtime: number }
 
 export default function LibraryPage() {
   const [params, setParams] = useSearchParams();
@@ -29,13 +24,12 @@ export default function LibraryPage() {
     <div>
       <div className="toolbar"><h1>Library</h1><div className="grow" /><span className="muted small">{source || 'no library yet'}</span></div>
       <div className="subtabs">
-        {(['overview', 'shows', 'folders', 'collections', 'import'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0]!.toUpperCase() + t.slice(1)}</button>)}
+        {(['overview', 'shows', 'folders', 'collections'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0]!.toUpperCase() + t.slice(1)}</button>)}
       </div>
       {tab === 'overview' && <Overview withBreaks={withBreaks} eps={eps.length} />}
       {tab === 'shows' && <Shows />}
       {tab === 'folders' && <Folders />}
       {tab === 'collections' && <Collections />}
-      {tab === 'import' && <Import />}
     </div>
   );
 }
@@ -223,88 +217,5 @@ function Collections() {
         </div>
       )}
     </div>
-  );
-}
-
-function Import() {
-  const setLibrary = useStore((s) => s.setLibrary);
-  const replaceRules = useStore((s) => s.replaceRules);
-  const [fileName, setFileName] = useState<string>();
-  const [header, setHeader] = useState<ProbeHeader>();
-  const [records, setRecords] = useState<ProbeRecord[]>([]);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [overrides, setOverrides] = useState<Record<string, MediaKind>>({});
-  const [busy, setBusy] = useState(false);
-  const [received, setReceived] = useState<ReceivedFile[]>([]);
-  const refresh = () => { fetch('/imports/index.json').then((r) => (r.ok ? r.json() : [])).then(setReceived).catch(() => setReceived([])); };
-  useEffect(refresh, []);
-  const preview = useMemo(() => (records.length ? importProbeLibrary(records, { rootKinds: overrides }) : undefined), [records, overrides]);
-  const loadText = (name: string, text: string) => { const p = parseProbeJsonl(text); setFileName(name); setHeader(p.header); setRecords(p.records); setErrors(p.errors); setOverrides({}); };
-  const onReceived = async (f: ReceivedFile) => { setBusy(true); try { const res = await fetch(`/imports/${encodeURIComponent(f.name)}`); loadText(f.name, await readBlobText(await res.blob(), f.name)); } finally { setBusy(false); } };
-  const onFile = async (f: File | undefined) => { if (!f) return; setBusy(true); try { loadText(f.name, await readBlobText(f, f.name)); } finally { setBusy(false); } };
-  const apply = (mode: 'starter' | 'keep' | 'scratch') => {
-    if (!preview) return;
-    setLibrary(preview.library, fileName ?? 'import');
-    if (mode === 'starter') replaceRules(starterRules(preview.library));
-    if (mode === 'scratch') replaceRules({ pools: [], clocks: [], channels: [] });
-  };
-  return (
-    <>
-      <div className="panel">
-        <h3 style={{ marginBottom: 8 }}>Import a probe file</h3>
-        <p className="muted small" style={{ marginTop: 0 }}>Run <code>scripts/probe-library.sh</code> on the machine with the media. Only paths, durations, chapters, and stream facts are read.</p>
-        <input type="file" accept=".jsonl,.gz,.json,application/json" disabled={busy} onChange={(e) => onFile(e.target.files?.[0])} />
-        {busy && <span className="muted small" style={{ marginLeft: 10 }}>parsing…</span>}
-        <div className="section">
-          <div className="toolbar" style={{ marginBottom: 6 }}>
-            <h3>Received files</h3><span className="muted small">in <code>data/imports/</code>: scans from Setup, uploads from the probe script (<code>-u http://this-machine:8787/imports/upload</code>), or copied in by hand</span>
-            <div className="grow" /><button className="btn sm" onClick={refresh}>Refresh</button>
-          </div>
-          <p className="muted small" style={{ marginTop: 0 }}>Load a file to preview it, then choose how to apply it below.</p>
-          {received.length === 0 ? <div className="muted small">Nothing yet. Start <code>python3 scripts/receive.py</code> here, then run the probe with <code>-u</code> on the media box.</div> : (
-            <div className="list">
-              {received.map((f) => (
-                <div key={f.name} className={`row-actions${fileName === f.name ? ' active' : ''}`}>
-                  <div>{f.name}<span className="sub">{(f.size / 1024).toFixed(0)} KB · {new Date(f.mtime).toLocaleString()}{fileName === f.name ? ' · loaded' : ''}</span></div>
-                  <button className={`btn sm${fileName === f.name ? '' : ' primary'}`} disabled={busy} onClick={() => onReceived(f)}>{fileName === f.name ? 'Reload' : 'Load'}</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      {preview && (
-        <div className="panel">
-          <div className="toolbar" style={{ marginBottom: 10 }}>
-            <h2>{fileName}</h2>
-            <span className="muted small">{header ? `from ${header.host}, ${new Date(header.generated_at).toLocaleString()}` : 'no header'}</span>
-            <div className="grow" />
-            {errors.length > 0 && <span className="badge warn">{errors.length} unreadable</span>}
-            <span className="badge">{records.length} files</span>
-          </div>
-          <table>
-            <thead><tr><th>Root folder</th><th>Kind</th><th className="mono">Files</th><th className="mono">Runtime</th><th>Shows</th><th>Eps with chapters</th></tr></thead>
-            <tbody>
-              {preview.roots.map((r) => (
-                <tr key={r.root}>
-                  <td className="mono">{r.root}</td>
-                  <td><select value={overrides[r.root] ?? r.kind} onChange={(e) => setOverrides((o) => ({ ...o, [r.root]: e.target.value as MediaKind }))}>{KINDS.map((k) => <option key={k} value={k}>{k}</option>)}</select></td>
-                  <td className="mono">{r.count}</td>
-                  <td className="mono">{fmtDuration(r.durationMs)}</td>
-                  <td>{r.kind === 'episode' ? r.shows : <span className="muted">—</span>}</td>
-                  <td>{r.episodes > 0 ? <span className={`badge ${r.withChapters === r.episodes ? 'ok' : r.withChapters === 0 ? 'warn' : ''}`}>{r.withChapters}/{r.episodes}</span> : <span className="muted">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="toolbar" style={{ marginTop: 14 }}>
-            <button className="btn primary" onClick={() => apply('keep')}>Use library, keep my channels</button>
-            <button className="btn" onClick={() => apply('scratch')}>Use library, start from scratch</button>
-            <button className="btn" onClick={() => apply('starter')}>Use library + generate starter channels</button>
-          </div>
-          {errors.length > 0 && <details style={{ marginTop: 10 }}><summary className="small muted">Unreadable files</summary><pre className="code">{errors.join('\n')}</pre></details>}
-        </div>
-      )}
-    </>
   );
 }

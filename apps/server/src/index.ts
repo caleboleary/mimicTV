@@ -5,7 +5,8 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { poolItems, rngFor, visibleLibrary, type MediaItem, type PlayoutItem } from '@mimictv/core';
+import zlib from 'node:zlib';
+import { poolItems, rngFor, visibleLibrary, parseProbeJsonl, importProbeLibrary, type MediaItem, type PlayoutItem } from '@mimictv/core';
 import { store, files, IMPORTS, DATA, type Settings, type RulesSnapshot, type LibraryFile } from './store';
 import { runScan, scanStatus } from './scan';
 import { publishNow, lastPublish } from './publish';
@@ -54,24 +55,21 @@ route('GET', '/api/settings', (_r, res) => json(res, store.settings()));
 route('PUT', '/api/settings', async (req, res) => { store.saveSettings(JSON.parse((await body(req)).toString()) as Settings); restartTimer(); res.end('ok'); });
 route('GET', '/api/health', (_r, res) => json(res, { ok: true, dataDir: DATA, scan: scanStatus(), lastPublish: lastPublish() ?? null, nextPublishAt: nextPublishAt ?? null }));
 
-// ---- imports (files from scripts/probe-library.sh, uploaded or copied in)
-route('GET', '/imports/index.json', (_r, res) => {
-  const list = fs.existsSync(IMPORTS) ? fs.readdirSync(IMPORTS).filter((f) => /\.(jsonl|json)(\.gz)?$/.test(f)).map((f) => { const st = fs.statSync(path.join(IMPORTS, f)); return { name: f, size: st.size, mtime: st.mtimeMs }; }).sort((a, b) => b.mtime - a.mtime) : [];
-  json(res, list);
-});
-route('GET', '/imports/:name', (_r, res, p) => {
-  const file = path.join(IMPORTS, path.basename(decodeURIComponent(p.name!)));
-  if (!fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
-  res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
-  fs.createReadStream(file).pipe(res);
-});
+// ---- probe files from another machine: scripts/probe-library.sh -u http://this-host:8787/imports/upload
 route('PUT', '/imports/upload/:name', async (req, res, p) => {
   const base = path.basename(decodeURIComponent(p.name!));
+  const raw = await body(req);
+  const text = base.endsWith('.gz') ? zlib.gunzipSync(raw).toString('utf8') : raw.toString('utf8');
+  const parsed = parseProbeJsonl(text);
+  if (parsed.records.length === 0) { res.writeHead(400); res.end(`no records in ${base}\n`); return; }
   fs.mkdirSync(IMPORTS, { recursive: true });
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
   const dest = path.join(IMPORTS, base.replace(/(\.jsonl|\.json)(\.gz)?$/, `-${stamp}$1$2`));
-  fs.writeFileSync(dest, await body(req));
-  res.end(`saved as ${path.basename(dest)}\n`);
+  fs.writeFileSync(dest, raw);
+  const result = importProbeLibrary(parsed.records);
+  store.saveLibrary({ library: result.library, source: `probe from ${parsed.header?.host ?? 'another machine'}, ${new Date().toLocaleString()}` });
+  schedulePublish();
+  res.end(`library built from ${parsed.records.length} files (${parsed.errors.length} unreadable), saved as ${path.basename(dest)}\n`);
 });
 
 // ---- scanning

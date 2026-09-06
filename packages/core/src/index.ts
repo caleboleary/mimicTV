@@ -19,4 +19,3 @@ export type { Programme } from './emit/xmltv';
 export { newChannelAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS } from './defaults';
 export { parseProbeJsonl, importProbeLibrary, guessKind, parseEpisode, parseShowFolder, cleanEpisodeTitle, slug } from './library/probe-import';
 export type { ProbeRecord, ProbeHeader, RootSummary, ImportOptions } from './library/probe-import';
-export { starterRules } from './defaults';

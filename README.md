@@ -47,14 +47,12 @@ Storage is JSON on disk on purpose: small, readable, diffable, easy to back up. 
 
 Pools and formats belong to the channel that made them. "Make reusable" on a pool turns it into a shared collection other channels can pick; "Make a private copy" goes the other way. See `docs/design-notes.md` for why.
 
-## Scan from another machine instead
+## Media on another machine
 
-On the machine that has the media (needs `ffprobe`):
+If mimicTV can't see the media itself, run the probe on the box that has it (needs `ffprobe`) and send the result to the service:
 
 ```sh
-./scripts/probe-library.sh -o library.jsonl /mnt/user/media/tv /mnt/user/media/commercials /mnt/user/media/ids
+./scripts/probe-library.sh -u http://<mimictv-host>:8787/imports/upload /mnt/user/Media/TV /mnt/user/Media/Commercials
 ```
 
-It writes one JSON line per file: path, duration, chapters, and stream info. Nothing else leaves the box. Useful flags: `-n 50` for a quick test, `-r` to resume an interrupted run, `-j` to gzip the result, `-u http://<mimictv-host>:8787/imports/upload` to send the result straight to the service. The Library page lists everything in `data/imports/` under "Received files"; the file picker on the same page works too. `scripts/receive.py` is an older standalone receiver that still works.
-
-Open the Library page and load the file. Kinds are guessed from folder names (tv, commercials, ids, filler, movies) and can be overridden per root. "Use library + generate starter channels" builds one channel per program root so the preview lights up immediately. The imported library persists in IndexedDB as a fallback for when the service is down.
+It reads paths, durations, chapters, and stream facts; nothing else leaves the box. The service builds the library from it on arrival, exactly as a scan would. Paths must be what ErsatzTV Next will see, or add a path mapping in Setup. `-n 50` probes a sample first; `-r` resumes; `-j` gzips.

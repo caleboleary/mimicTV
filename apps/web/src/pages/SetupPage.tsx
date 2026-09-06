@@ -100,8 +100,6 @@ export default function SetupPage() {
         <div className="toolbar" style={{ marginBottom: 6 }}>
           <h2>1. Where your media is</h2>
           <Help><p><b>Folders mimicTV scans.</b> One row per top-level folder: your TV shows, your commercials, your bumpers. Each folder is read with ffprobe to learn durations and chapters. Nothing is copied or changed.</p><p>The kind is guessed from the folder name; set it here if the guess is wrong.</p></Help>
-          <div className="grow" />
-          <Link to="/library?tab=import" className="muted small">or import a probe file from another machine</Link>
         </div>
         <div className="recipe" style={{ gap: 6 }}>
           {settings.library.roots.map((r, i) => (
