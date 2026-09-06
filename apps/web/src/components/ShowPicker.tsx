@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Library } from '@mimictv/core';
 
 interface Props { library: Library; selected: string[]; onChange: (ids: string[]) => void }
 
 export default function ShowPicker({ library, selected, onChange }: Props) {
   const [q, setQ] = useState('');
+  // Shows already picked when the editor opened sit at the top; a click never reorders the list, so you keep your place.
+  const pinned = useRef(new Set(selected));
   const stats = useMemo(() => {
     const m = new Map<string, { eps: number; ch: number }>();
     for (const i of library.items) if (i.showId && i.kind === 'episode') {
@@ -14,11 +16,10 @@ export default function ShowPicker({ library, selected, onChange }: Props) {
   }, [library]);
   const shows = useMemo(() => {
     const all = [...library.shows].sort((a, b) => a.title.localeCompare(b.title));
-    const sel = new Set(selected);
     const ql = q.trim().toLowerCase();
     const filtered = ql ? all.filter((s) => s.title.toLowerCase().includes(ql)) : all;
-    return [...filtered.filter((s) => sel.has(s.id)), ...filtered.filter((s) => !sel.has(s.id))].slice(0, 90);
-  }, [library, selected, q]);
+    return [...filtered.filter((s) => pinned.current.has(s.id)), ...filtered.filter((s) => !pinned.current.has(s.id))].slice(0, 90);
+  }, [library, q]);
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   return (
     <div>
