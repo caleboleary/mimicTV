@@ -15,6 +15,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true, // reachable from other machines, e.g. the app running in a container on Unraid
     proxy: { '/api': SERVER, '/imports': SERVER, '/dynamic': SERVER },
   },
 });

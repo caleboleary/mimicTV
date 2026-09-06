@@ -1,0 +1,13 @@
+# mimicTV dev container: the repo is bind-mounted at /app, so this image only carries the tools.
+# Node for the app and service, ffmpeg for scanning, git + Claude Code for iterating on the box.
+FROM node:24-bookworm
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg git ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install -g @anthropic-ai/claude-code
+WORKDIR /app
+COPY dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+EXPOSE 5173 8787
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]
+CMD ["npm", "run", "dev"]

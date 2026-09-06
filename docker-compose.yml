@@ -1,0 +1,34 @@
+# mimicTV dev container next to ErsatzTV Next, for testing on a real box (see docs/unraid.md).
+# Adjust the three host paths for your machine.
+services:
+  mimictv:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.dev
+    container_name: mimictv-dev
+    ports:
+      - "5173:5173"   # app
+      - "8787:8787"   # service (Next calls back here for live ad breaks)
+    volumes:
+      - /mnt/user/appdata/mimictv/repo:/app          # this repo
+      - /mnt/user/appdata/mimictv/home:/root         # keeps Claude Code login and shell history
+      - /mnt/user/media:/media:ro                    # your media, same path Next sees
+      - /mnt/user/appdata/ersatztv-next:/next        # published output; Next reads it as /config
+    environment:
+      - TZ=America/Chicago
+    restart: unless-stopped
+
+  ersatztv-next:
+    image: ghcr.io/ersatztv/next:latest
+    container_name: ersatztv-next
+    ports:
+      - "8409:8409"
+    volumes:
+      - /mnt/user/media:/media:ro
+      - /mnt/user/appdata/ersatztv-next:/config
+    environment:
+      - TZ=America/Chicago
+    # Optional hardware transcoding, e.g. Intel Quick Sync:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    restart: unless-stopped
