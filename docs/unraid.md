@@ -1,13 +1,13 @@
 # Running mimicTV next to ErsatzTV Next on Unraid
 
-A dev setup, not a release: the repo is bind-mounted into a container that has Node, ffmpeg, git, and Claude Code, so you can iterate on the box with real data. Next runs beside it from its official image.
+A dev setup, not a release: the repo is bind-mounted into a container that has Node, ffmpeg, and git, so you can iterate on the box with real data. Next runs beside it from its official image.
 
 ## Layout on the box
 
 | Host path | Purpose | Mounted in mimicTV as | Mounted in Next as |
 |---|---|---|---|
 | `/mnt/user/appdata/mimictv/repo` | this repo, including `data/` | `/app` | |
-| `/mnt/user/appdata/mimictv/home` | Claude Code login, shell history | `/root` | |
+| `/mnt/user/appdata/mimictv/home` | home dir: Claude Code install and login, shell history | `/root` | |
 | `/mnt/user/media` | your media (read-only) | `/media` | `/media` |
 | `/mnt/user/appdata/ersatztv-next` | what mimicTV publishes | `/next` | `/config` |
 
@@ -60,11 +60,14 @@ The service tops the playout up every six hours and republishes a few seconds af
 
 ## Iterating on the box
 
+Claude Code isn't in the image; install it once inside the container and it persists in the `home` mount along with its login:
+
 ```sh
+docker exec -it mimictv-dev npm install -g @anthropic-ai/claude-code
 docker exec -it mimictv-dev claude
 ```
 
-Log in once; the login persists in the `home` mount. The container sees the real library, the published output, and Next's logs (`docker logs ersatztv-next` from the host, or mount the Docker socket if you want them inside). Commit from inside the container. Set your name and email first:
+Log in once. The container sees the real library, the published output, and Next's logs (`docker logs ersatztv-next` from the host, or mount the Docker socket if you want them inside). Commit from inside the container. Set your name and email first:
 
 ```sh
 docker exec -it mimictv-dev git config --global user.name "Caleb"
@@ -73,7 +76,7 @@ docker exec -it mimictv-dev git config --global user.email "you@example.com"
 
 ## Things to know
 
-- The image tag `latest` for `ghcr.io/ersatztv/next` is a guess at their naming; check the package page if it fails to pull, and pin a tag once one works.
+- Next has no `latest` image tag. Both `ghcr.io/ersatztv/next` and Docker Hub `ersatztv/next` carry `develop` (rebuilt on pushes) and one tag per commit SHA. The compose file uses `develop`; pin a SHA once a build has proven itself. Their release workflow can also stamp `vX.Y.Z` tags, but none exist yet.
 - `data/` lives inside the repo mount, so state survives container rebuilds and `git pull`. It's ignored by git.
 - Times in published files carry the container's timezone offset. Keep `TZ` the same in both containers and matching the box.
 - Live ad breaks need Next to reach the service. Set the resolver URL on Setup to `http://<unraid-ip>:8787`.

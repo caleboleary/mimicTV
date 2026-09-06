@@ -19,7 +19,10 @@ services:
     restart: unless-stopped
 
   ersatztv-next:
-    image: ghcr.io/ersatztv/next:latest
+    # Next publishes no "latest" yet: only "develop" and one tag per commit SHA, on ghcr.io and
+    # Docker Hub (ersatztv/next). Pin a SHA once a build has proven itself, e.g.
+    #   ghcr.io/ersatztv/next:cbcd328e5c8243c5102fad097f62b1240760322e   (2026-08-29)
+    image: ghcr.io/ersatztv/next:develop
     container_name: ersatztv-next
     ports:
       - "8409:8409"
