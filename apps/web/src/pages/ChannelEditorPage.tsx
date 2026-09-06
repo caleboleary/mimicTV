@@ -5,7 +5,6 @@ import { poolItems, poolShows, fmtClock, newChannelAnchorMs, type Channel, type 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 import { useStore , useLibrary } from '../store/store';
 import { useRuleset, useSim } from '../store/useSim';
-import { exportDay } from '../export';
 import Card, { Disclosure } from '../components/Card';
 import PoolEditor, { MODES } from '../components/PoolEditor';
 import FormatEditor from '../components/FormatEditor';
@@ -404,7 +403,6 @@ export default function ChannelEditorPage() {
           </Card>
 
           <div className="toolbar">
-            <button className="btn primary sm" onClick={() => setStatus(exportDay(channel, ruleset, previewDate))}>Export {previewDate}</button>
             <button className="btn sm" onClick={() => nav(`/channels/${duplicateChannel(channel.id)}`)}>Duplicate</button>
             <button className="btn sm" title="Forget everything written for this channel and start its timeline again at the current half hour. Whatever is playing on it now is cut off." onClick={async () => {
               if (!confirm('Restart this channel from now? Its history is forgotten and whatever is playing on it is cut off.')) return;

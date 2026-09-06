@@ -16,7 +16,8 @@
 # Requires ffprobe on PATH, or set FFPROBE, e.g.
 #   FFPROBE="docker exec -i ersatztv ffprobe" ./probe-library.sh ... (paths must be container paths)
 #
-# Then copy library.jsonl to the mimicTV machine and load it on the Library page.
+# With -u the service builds the library from the upload as it arrives; otherwise copy the file over and
+# PUT it yourself: curl -T library.jsonl http://<mimictv-host>:8787/imports/upload/library.jsonl
 
 set -uo pipefail
 

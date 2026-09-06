@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { poolItems, rngFor, visibleLibrary, parseProbeJsonl, importProbeLibrary, type MediaItem, type PlayoutItem } from '@mimictv/core';
-import { store, files, IMPORTS, DATA, type Settings, type RulesSnapshot, type LibraryFile } from './store';
+import { store, files, IMPORTS, DATA, ROOT, type Settings, type RulesSnapshot, type LibraryFile } from './store';
 import { runScan, scanStatus } from './scan';
 import { publishNow, lastPublish } from './publish';
 import { composed, loadShow, saveShow, showFolders, analyzePlan, analyzeShow, breaksStatus, cancelAnalyze, seedFromChapterizeCache, importEmbedded } from './breaks';
@@ -219,6 +219,23 @@ route('GET', '/dynamic/:channelId', (req, res, _p, url) => {
   json(res, out);
 });
 
+// ---- the built app (npm run build). In development Vite serves it instead and proxies /api here.
+const WEB_DIST = path.join(ROOT, 'apps', 'web', 'dist');
+const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff', '.txt': 'text/plain', '.map': 'application/json' };
+function serveStatic(req: http.IncomingMessage, res: http.ServerResponse, pathname: string): boolean {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  if (!fs.existsSync(WEB_DIST)) return false;
+  const safe = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
+  let file = path.join(WEB_DIST, safe);
+  if (!file.startsWith(WEB_DIST)) return false;
+  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(WEB_DIST, 'index.html'); // client-side routes
+  const ext = path.extname(file).toLowerCase();
+  res.writeHead(200, { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' });
+  if (req.method === 'HEAD') { res.end(); return true; }
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   for (const r of routes) {
@@ -230,11 +247,12 @@ const server = http.createServer(async (req, res) => {
     try { await r.handler(req, res, params, url); } catch (e) { console.error(e); if (!res.headersSent) json(res, { error: (e as Error).message }, 500); }
     return;
   }
+  if (!/^\/(api|imports|dynamic)\//.test(url.pathname) && serveStatic(req, res, url.pathname)) return;
   res.writeHead(404); res.end();
 });
 
 server.listen(PORT, () => {
-  console.log(`mimicTV service on http://localhost:${PORT}  data: ${DATA}`);
+  console.log(`mimicTV on http://localhost:${PORT}  data: ${DATA}${fs.existsSync(WEB_DIST) ? '' : '  (API only: run npm run build to serve the app from here)'}`);
   restartTimer();
 });
 

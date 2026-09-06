@@ -49,9 +49,11 @@ Number, name, `tvg_id`, logo, group, and **dayparts**: a sorted list of (minute-
 
 `planPublish` (pure, in `emit/`) turns channels + rules + each channel's **checkpoint** into day files. A checkpoint is cursor state at a boundary plus the rules that were in force from it. Replaying those rules is deterministic, so a republish reproduces what was already written up to the first block end after now, then continues under the current rules. Mirrors are planned from their source and shifted. The service writes the result atomically and merges each day file so items before the boundary are kept as written.
 
+## Break points
+
+Where the ads go inside an episode. Measured from the video (fades to black, loudness around them), decided per show, stored under `data/breaks/`, and folded into library items on read. See [breaks.md](breaks.md).
+
 ## Deferred
 
-- Break-point detection (owner's blackdetect code, to be ported).
-- `dynamic` sources for live ad selection.
 - Movie clocks, marathons, more selection modes.
 - Play-history database for long-range "last aired" questions.

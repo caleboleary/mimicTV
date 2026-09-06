@@ -4,7 +4,7 @@ set -e
 cd /app
 git config --global --add safe.directory /app 2>/dev/null || true
 if [ ! -f package.json ]; then
-  echo "No repo at /app. Mount the mimicTV checkout there (see docs/unraid.md)." >&2
+  echo "No repo at /app. Mount the mimicTV checkout there (see docs/development.md)." >&2
   exit 1
 fi
 if [ ! -d node_modules ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then

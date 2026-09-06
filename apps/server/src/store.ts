@@ -22,7 +22,7 @@ export interface Settings {
     pathMap: { from: string; to: string }[];
     /** URL Next can reach mimicTV on, for live breaks. Empty = write pre-picked ads. */
     resolverUrl: string;
-    /** Next as reached from the user's network, e.g. http://192.168.1.10:8410: the M3U/XMLTV links and the in-app preview use it. */
+    /** Next as reached from the user's network, e.g. http://192.168.1.10:8409: the M3U/XMLTV links and the in-app preview use it. */
     publicUrl: string;
     /** Per-channel normalization defaults written to channel.json. */
     video: { width: number; height: number; bitrateKbps: number; format: string; accel: string };

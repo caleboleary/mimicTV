@@ -1,37 +1,38 @@
-# mimicTV dev container next to ErsatzTV Next, for testing on a real box (see docs/unraid.md).
-# Adjust the three host paths for your machine.
+# mimicTV next to ErsatzTV Next. Change the three host paths and the time zone, then: docker compose up -d
+#
+#   media      your library, read-only, mounted at the same path in both containers
+#   next       the folder mimicTV publishes into and ErsatzTV Next reads as /config
+#   ./data     mimicTV's state: rules, library, break decisions, checkpoints (back this up)
+#
+# Both containers need the same TZ: schedules are built in local time.
 services:
   mimictv:
     build:
-      context: ./docker
-      dockerfile: Dockerfile.dev
-    container_name: mimictv-dev
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: mimictv
     ports:
-      - "5173:5173"   # app
-      - "8787:8787"   # service (Next calls back here for live ad breaks)
+      - "8787:8787"
     volumes:
-      - /mnt/user/appdata/mimictv/repo:/app          # this repo
-      - /mnt/user/appdata/mimictv/home:/root         # keeps Claude Code login and shell history
-      - /mnt/user/Media:/media:ro                    # your media, same path Next sees
-      - /mnt/user/appdata/ersatztv-next:/next        # published output; Next reads it as /config
+      - ./data:/data
+      - /path/to/media:/media:ro
+      - /path/to/ersatztv-next:/next
     environment:
-      - TZ=America/Chicago
+      - TZ=America/New_York
     restart: unless-stopped
 
   ersatztv-next:
-    # Next publishes no "latest" yet: only "develop" and one tag per commit SHA, on ghcr.io and
-    # Docker Hub (ersatztv/next). Pin a SHA once a build has proven itself, e.g.
-    #   ghcr.io/ersatztv/next:cbcd328e5c8243c5102fad097f62b1240760322e   (2026-08-29)
+    # ErsatzTV Next publishes no "latest" tag yet: "develop" tracks the main branch; pin a commit SHA once a build has proven itself.
     image: ghcr.io/ersatztv/next:develop
     container_name: ersatztv-next
     ports:
-      - "8410:8409"   # host 8410; Legacy ErsatzTV already owns 8409 on the box
+      - "8409:8409"
     volumes:
-      - /mnt/user/Media:/media:ro
-      - /mnt/user/appdata/ersatztv-next:/config
+      - /path/to/media:/media:ro
+      - /path/to/ersatztv-next:/config
     environment:
-      - TZ=America/Chicago
-    # Optional hardware transcoding, e.g. Intel Quick Sync:
+      - TZ=America/New_York
+    # Hardware transcoding, e.g. Intel Quick Sync:
     # devices:
     #   - /dev/dri:/dev/dri
     restart: unless-stopped

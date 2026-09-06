@@ -1,7 +1,7 @@
 /**
- * One test per row of the scenario table in docs/design-notes.md.
+ * One test per scheduling scenario people ask for: the numbered rows are the roadmap.
  * Rows that work are asserted against the stub library; open rows are `it.todo` so
- * `npm test` doubles as the roadmap. Keep the numbering in sync with the doc.
+ * `npm test` doubles as the status page.
  */
 import { describe, it, expect } from 'vitest';
 import {

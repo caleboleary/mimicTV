@@ -262,7 +262,7 @@ export const useStore = create<State>()(
       replaceRules: (rules) => set({ ...rules, selectedChannelId: rules.channels[0]?.id ?? '' }),
     }),
     {
-      name: 'mimictv-poc',
+      name: 'mimictv',
       version: 1,
       partialize: (s) => ({
         pools: s.pools, clocks: s.clocks, channels: s.channels, hiddenFolders: s.hiddenFolders, librarySource: s.librarySource,

@@ -105,7 +105,7 @@ export default function SetupPage() {
         <div className="recipe" style={{ gap: 6 }}>
           {settings.library.roots.map((r, i) => (
             <div key={i} className="search-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-              <input type="text" placeholder="/mnt/user/media/tv" value={r.path} onChange={(e) => update((s) => ({ ...s, library: { ...s.library, roots: s.library.roots.map((x, j) => (j === i ? { ...x, path: e.target.value } : x)) } }))} />
+              <input type="text" placeholder="/media/tv" value={r.path} onChange={(e) => update((s) => ({ ...s, library: { ...s.library, roots: s.library.roots.map((x, j) => (j === i ? { ...x, path: e.target.value } : x)) } }))} />
               <select value={r.kind ?? ''} onChange={(e) => update((s) => ({ ...s, library: { ...s.library, roots: s.library.roots.map((x, j) => (j === i ? { ...x, kind: (e.target.value || undefined) as MediaKind | undefined } : x)) } }))}>
                 <option value="">guess kind</option>
                 {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
@@ -141,10 +141,10 @@ export default function SetupPage() {
           <Help><p><b>The folder mimicTV writes for ErsatzTV Next.</b> It gets a <code>lineup.json</code>, one folder per channel with its <code>channel.json</code> and playout files, and an <code>xmltv</code> folder for the guide. Point ErsatzTV Next at the lineup file.</p><p>ErsatzTV Next reads the lineup only when it starts, so restart it after adding or removing a channel.</p><p>Files are kept a few days ahead and topped up on a schedule. Editing a channel rewrites its future from the next break, never the block that's playing.</p></Help>
         </div>
         <div className="form-grid">
-          <label className="field" style={{ gridColumn: '1 / -1' }}>Output folder<input type="text" placeholder="/mnt/user/appdata/ersatztv-next" value={settings.next.outputDir} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, outputDir: e.target.value } }))} /></label>
+          <label className="field" style={{ gridColumn: '1 / -1' }}>Output folder<input type="text" placeholder="/next" value={settings.next.outputDir} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, outputDir: e.target.value } }))} /></label>
           <label className="field">Days written ahead<input type="number" min={1} max={14} value={settings.next.horizonDays} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, horizonDays: Math.max(1, Number(e.target.value)) } }))} /></label>
           <label className="field">Top up every (hours)<input type="number" min={0.25} step={0.25} value={settings.next.refreshHours} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, refreshHours: Math.max(0.25, Number(e.target.value)) } }))} /></label>
-          <label className="field" style={{ gridColumn: '1 / -1' }}>Where ErsatzTV Next is on your network<input type="text" placeholder="http://192.168.1.10:8410" value={settings.next.publicUrl} onChange={(e) => { setNextUrl(e.target.value); update((s) => ({ ...s, next: { ...s.next, publicUrl: e.target.value } })); }} /><span className="muted small">TV apps get their M3U and guide from here (links in the sidebar), and ▶ on the Guide plays from it.</span></label>
+          <label className="field" style={{ gridColumn: '1 / -1' }}>Where ErsatzTV Next is on your network<input type="text" placeholder="http://192.168.1.10:8409" value={settings.next.publicUrl} onChange={(e) => { setNextUrl(e.target.value); update((s) => ({ ...s, next: { ...s.next, publicUrl: e.target.value } })); }} /><span className="muted small">TV apps get their M3U and guide from here (links in the sidebar), and ▶ on the Guide plays from it.</span></label>
         </div>
         <Disclosure label="Paths look different on the ErsatzTV Next machine">
           <p className="muted small" style={{ marginTop: 0 }}>If the library was scanned at one path but ErsatzTV Next sees the same files at another, map the prefix. Left: as scanned. Right: as ErsatzTV Next sees it.</p>
@@ -152,7 +152,7 @@ export default function SetupPage() {
             <div key={i} className="search-row" style={{ gridTemplateColumns: '1fr auto 1fr auto', marginBottom: 6 }}>
               <input type="text" placeholder="/media" value={m.from} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, pathMap: s.next.pathMap.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)) } }))} />
               <span className="muted small">→</span>
-              <input type="text" placeholder="/mnt/user/media" value={m.to} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, pathMap: s.next.pathMap.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)) } }))} />
+              <input type="text" placeholder="/mnt/media" value={m.to} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, pathMap: s.next.pathMap.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)) } }))} />
               <button className="btn sm" onClick={() => update((s) => ({ ...s, next: { ...s.next, pathMap: s.next.pathMap.filter((_, j) => j !== i) } }))}>×</button>
             </div>
           ))}
