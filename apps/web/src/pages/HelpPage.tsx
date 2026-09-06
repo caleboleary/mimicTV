@@ -48,6 +48,40 @@ const SECTIONS: { id: string; title: string; body: JSX.Element }[] = [
     ),
   },
   {
+    id: 'recipes', title: 'Recipes', body: (
+      <>
+        <p className="muted small">Channel setups people ask for, and where each lives. Every one starts with New channel and a few ticked shows.</p>
+        <h3>The basics</h3>
+        <p><b>A cartoon block: shuffled shows, each in episode order, ads at the chapter marks, IDs near the hour, padded to the half hour.</b><br />That is the default. The Half-hour show preset does it: 22 minutes of content, breaks at the break points (or every 8 minutes when an episode has none), an ID when a break lands near :00 or :30, filler to the next :30.</p>
+        <p><b>One show, start to finish, in order.</b><br />Tick one show. Under Shows, set the order to Sequential. For hour-long episodes pick the Hour drama preset.</p>
+        <p><b>Two shows strictly alternating.</b><br />Tick exactly two shows with the default "Shuffle shows, episodes in order". A shuffle never repeats the show that just played.</p>
+        <p><b>Two episodes of a show, then switch.</b><br />Shows → More options → Episodes of a show in a row.</p>
+        <p><b>Only seasons 1 to 3.</b><br />Shows → More options → Only seasons. The length range and "skip extras" beside it keep specials and stray files off the air.</p>
+        <p><b>Sitcoms back to back, no ads, no padding.</b><br />Format → Back to back. Each episode starts when the last one ends.</p>
+        <p><b>Movies with a break every 25 minutes.</b><br />Format → Movies. Customize changes the interval or sets fixed offsets.</p>
+        <p><b>Music videos with a bumper every four clips.</b><br />Format → Music videos. Customize → Between stacked programs changes the count.</p>
+        <h3>Time of day</h3>
+        <p><b>Cartoons in the morning, sitcoms in the evening, movies late.</b><br />Schedule → + time band at each hour the format changes. Each band has its own shows, format, and breaks; click a band to edit it.</p>
+        <p><b>Off air overnight: a static card or test pattern only.</b><br />Add a band at, say, 02:00 and give it the Off air format. Only the filler pool plays.</p>
+        <p><b>The Simpsons at 6pm every day, whatever else is going on.</b><br />Schedule → + fixed show. Set its time and length, then choose the show under Shows. The shows around it make room and the day resumes afterwards.</p>
+        <p><b>Saturday-morning-only cartoons.</b><br />On that band, open "Only on certain days" and tick Sat (and Sun). Other days, the surrounding band covers the time.</p>
+        <p><b>Holiday specials only in December.</b><br />On a band, Only on certain days → Between 12-01 and 12-31 (a window can wrap the year end). Give the band a show pool of the specials.</p>
+        <p><b>East and West feeds: the same channel three hours later.</b><br />Make the second channel, then Identity → Mirror another channel, pick the source and the offset. A mirror has no recipe of its own.</p>
+        <h3>Breaks and branding</h3>
+        <p><b>A channel bug on shows, off during commercials.</b><br />Format → Customize → Branding: tick Channel bug and set the image path.</p>
+        <p><b>A bumper going into every break and another coming out.</b><br />Breaks → Bumpers: a pool for "Going into a break" and one for "Coming out of a break" (that one plays last, after the network ID).</p>
+        <p><b>"Coming up next" after every programme.</b><br />Breaks → Bumpers → When a show ends. Only in the break after a programme finishes, not at chapter cuts inside one.</p>
+        <p><b>Ads themed to the era of the show playing.</b><br />Make a commercial collection per era in Library → Collections, then Breaks → Different ads for some shows: the shows and the pool to use while they are on.</p>
+        <p><b>Commercials that do not repeat across channels.</b><br />On the commercial pool, More options → Count plays on other channels too. Use a shared collection so every channel draws from the same pool.</p>
+        <p><b>Pick the ads live, at playback.</b><br />Format → Customize → Pick ads at playback. Each break becomes a placeholder ErsatzTV Next resolves by asking mimicTV during the break. Needs the resolver URL in Setup.</p>
+        <h3>Fixing a running channel</h3>
+        <p><b>Replicate a channel with different shows.</b><br />Channels → Duplicate, then swap the shows. The copy gets its own seed, so the order differs while the shape stays.</p>
+        <p><b>Start a show over, or jump to S03E01.</b><br />Shows → Where each show is: Start over, or jump to an episode. Takes effect from the next published break.</p>
+        <p><b>Start the whole channel over from now.</b><br />Identity → Restart from now. History is forgotten and it begins again at the current half hour; whatever is playing is cut off.</p>
+      </>
+    ),
+  },
+  {
     id: 'breaks', title: 'Where the ads go inside an episode', body: (
       <>
         <p>An ad break in the middle of an episode needs a break point: an offset in the file where the show fades out. Files sometimes carry these as chapters, but chapters that came with a download are usually scene marks, not breaks, and every one of them would become an ad. Library → Shows shows what each series is running on.</p>

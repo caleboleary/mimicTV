@@ -368,3 +368,5 @@ tr.hidden-row .sub { opacity: 0.8; }
 .docs-section p { margin: 0 0 10px; line-height: 1.55; font-size: 13.5px; }
 .docs-section p:last-child { margin-bottom: 0; }
 .docs-section b { color: var(--accent); font-weight: 600; }
+.docs-section h3 { margin: 14px 0 8px; }
+.docs-section h3:first-of-type { margin-top: 6px; }
