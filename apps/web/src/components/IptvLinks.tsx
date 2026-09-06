@@ -23,7 +23,7 @@ export default function IptvLinks() {
     return (
       <div className="iptv">
         <div className="small muted">Watch in a TV app</div>
-        <Link to="/setup" className="small">Set Next's address in Setup →</Link>
+        <Link to="/setup" className="small">Set ErsatzTV Next's address in Setup →</Link>
       </div>
     );
   }

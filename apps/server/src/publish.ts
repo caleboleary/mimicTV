@@ -88,8 +88,17 @@ export function publishNow(now = Date.now()): PublishResult {
     checkpoints[plan.channel.id] = plan.checkpoint;
     result.channels.push({ id: plan.channel.id, name: plan.channel.name, files: written, boundary: plan.boundary });
   }
-  // Checkpoints for channels that no longer exist are dropped.
+  // Channels that no longer exist: drop their checkpoint, timeline, and (only if it looks like ours) the folder Next was reading.
   for (const id of Object.keys(checkpoints)) if (!channels.some((c) => c.id === id)) { delete checkpoints[id]; store.deleteTimeline(id); }
+  const channelsDir = path.join(out, 'channels');
+  if (fs.existsSync(channelsDir)) {
+    for (const name of fs.readdirSync(channelsDir)) {
+      const dir = path.join(channelsDir, name);
+      if (channels.some((c) => c.id === name) || !fs.existsSync(path.join(dir, 'channel.json')) || !fs.existsSync(path.join(dir, 'playout'))) continue;
+      const stray = fs.readdirSync(path.join(dir, 'playout')).filter((f) => !PLAYOUT_NAME.test(f));
+      if (stray.length === 0) fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
   store.saveCheckpoints(checkpoints);
 
   const lineup = {

@@ -313,3 +313,6 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 .view-box .handle::after { content: ''; position: absolute; top: 50%; left: 50%; width: 1px; height: 8px; transform: translate(-50%, -50%); background: var(--accent-ink); opacity: 0.7; }
 .view-box .handle.l { left: -4px; }
 .view-box .handle.r { right: -4px; }
+
+.strip-rows .track { cursor: grab; touch-action: none; }
+.strip-rows:active .track { cursor: grabbing; }

@@ -87,6 +87,26 @@ export default function GuidePage() {
     return () => el.removeEventListener('wheel', h);
   }, [sorted.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Dragging the strip pans it directly, like grabbing the timeline in an editor. A real drag swallows the click that would otherwise select a block.
+  const stripDrag = useRef<{ x0: number; start0: number; moved: boolean }>();
+  const onStripDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.chan')) return;
+    suppressClick.current = false;
+    stripDrag.current = { x0: e.clientX, start0: view.start, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onStripMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = stripDrag.current; if (!d) return;
+    const dx = e.clientX - d.x0;
+    if (!d.moved && Math.abs(dx) < 4) return;
+    d.moved = true;
+    const trackW = e.currentTarget.querySelector('.track')?.clientWidth ?? e.currentTarget.clientWidth;
+    setView((v) => ({ ...v, start: d.start0 - (dx / trackW) * v.len }));
+  };
+  const onStripUp = () => { const d = stripDrag.current; stripDrag.current = undefined; if (d?.moved) suppressClick.current = true; };
+  const suppressClick = useRef(false);
+  const onStripClickCapture = (e: React.MouseEvent) => { if (suppressClick.current) { suppressClick.current = false; e.stopPropagation(); } };
+
   // Ruler: tick spacing follows the zoom so labels never collide.
   const step = view.len <= 3 * HOUR ? 15 * MIN : view.len <= 9 * HOUR ? 30 * MIN : view.len <= 14 * HOUR ? HOUR : 2 * HOUR;
   const labelEvery = step < 30 * MIN ? 2 : 1;
@@ -124,7 +144,7 @@ export default function GuidePage() {
                 {nowInView && <span className="nowflag" style={{ left: `${pct(now)}%` }}>{fmtClock(now)}</span>}
               </div>
             </div>
-            <div ref={trackRef}>
+            <div ref={trackRef} className="strip-rows" onPointerDown={onStripDown} onPointerMove={onStripMove} onPointerUp={onStripUp} onPointerCancel={onStripUp} onClickCapture={onStripClickCapture}>
               {sorted.map((ch) => {
                 const sim = sims.get(ch.id);
                 const blocks = sim ? blocksInWindow(sim, start, end) : [];
@@ -132,7 +152,7 @@ export default function GuidePage() {
                   <div className="guide-row" key={ch.id}>
                     <div className="chan" onClick={() => nav(`/channels/${ch.id}`)}>
                       <b>{ch.number}</b><span>{ch.name}</span>
-                      <button className="watch" title={nextUrl ? 'Watch this channel now' : 'Set Next\'s address in Setup to watch here'} onClick={(e) => { e.stopPropagation(); if (nextUrl) setWatch(ch); else nav('/setup'); }}>▶</button>
+                      <button className="watch" title={nextUrl ? 'Watch this channel now' : 'Set ErsatzTV Next\'s address in Setup to watch here'} onClick={(e) => { e.stopPropagation(); if (nextUrl) setWatch(ch); else nav('/setup'); }}>▶</button>
                     </div>
                     <div className="track">
                       {blocks.flatMap((b) => programSpans(b).filter((sp) => sp.f > start && sp.s < end).map(({ e, s: s0, f: f0 }) => {
@@ -172,7 +192,7 @@ export default function GuidePage() {
             </div>
             <Navigator channels={sorted} sims={sims} dayStart={dayStart} view={view} setView={setView} nowMs={isToday ? now : undefined} />
             <div className="legend" style={{ marginTop: 10 }}>
-              <span className="muted">drag the box below to move, its edges to zoom · wheel scrubs, ctrl+wheel zooms · darker bands are breaks · click to inspect · ▶ to watch</span>
+              <span className="muted">drag the strip or the box below to move, the box's edges to zoom · wheel scrubs, ctrl+wheel zooms · darker bands are breaks · click to inspect · ▶ to watch</span>
               {!isToday && <span className="muted">· not today: press Now to see what's airing</span>}
             </div>
           </div>

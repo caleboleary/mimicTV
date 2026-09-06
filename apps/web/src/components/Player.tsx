@@ -6,11 +6,11 @@ import { copyText } from './IptvLinks';
 
 interface Props { channel: Channel; nowTitle?: string; onClose: () => void }
 
-type State = 'tuning' | 'playing' | 'muted' | 'error';
+type State = 'tuning' | 'playing' | 'muted' | 'error' | 'unknown-channel';
 
 /**
- * Plays Next's HLS stream for one channel. Next starts transcoding on the first viewer, so the
- * playlist can take a while to appear: retry patiently rather than giving up at hls.js defaults.
+ * Plays ErsatzTV Next's HLS stream for one channel. Next starts transcoding on the first viewer,
+ * so the playlist can take a while to appear: retry patiently rather than giving up at hls.js defaults.
  */
 export default function Player({ channel, nowTitle, onClose }: Props) {
   const nextUrl = useStore((s) => s.nextUrl);
@@ -22,6 +22,15 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Next reads lineup.json only at startup, so a channel added since then 404s forever. Its M3U says what it actually knows.
+  useEffect(() => {
+    let live = true;
+    fetch(`${base}/channels.m3u`).then((r) => r.text()).then((m3u) => {
+      if (live && !m3u.includes(`/channel/${channel.number}.m3u8`)) setState('unknown-channel');
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [base, channel.number]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -43,7 +52,7 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
       hls.on(Hls.Events.MANIFEST_PARSED, play);
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries++ < 5) setTimeout(() => hls?.startLoad(), 3000);
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries++ < 5) setTimeout(() => { if (hls?.media) hls.startLoad(); }, 3000);
         else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
         else setState('error');
       });
@@ -82,9 +91,10 @@ export default function Player({ channel, nowTitle, onClose }: Props) {
         <div className="player-body" ref={bodyRef}>
           {/* Live TV: no native controls. The timeline would only grow as segments arrive and pause makes no sense; just sound and fullscreen. */}
           <video ref={videoRef} playsInline onContextMenu={(e) => e.preventDefault()} />
-          {state === 'tuning' && <div className="player-overlay"><div className="spinner" />Tuning in… Next starts transcoding on the first viewer, so this can take 10–20 seconds.</div>}
+          {state === 'tuning' && <div className="player-overlay"><div className="spinner" />Tuning in… ErsatzTV Next starts transcoding on the first viewer, so this can take 10–20 seconds.</div>}
+          {state === 'unknown-channel' && <div className="player-overlay">ErsatzTV Next doesn't know channel {channel.number} yet. It reads the lineup only when it starts, so restart it (<code>docker restart ersatztv-next</code>) and try again.</div>}
           {state === 'muted' && <button className="player-overlay unmute" onClick={unmute}>🔇 playing muted · click for sound</button>}
-          {state === 'error' && <div className="player-overlay">Couldn't play <code>{src}</code>. Is Next running at {base}, and is that address reachable from this browser?</div>}
+          {state === 'error' && <div className="player-overlay">Couldn't play <code>{src}</code>. Is ErsatzTV Next running at {base}, and is that address reachable from this browser?</div>}
           <div className="player-bar">
             <button title={muted ? 'Unmute' : 'Mute'} onClick={toggleMute}>{muted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}</button>
             <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} onChange={(e) => setVol(Number(e.target.value))} title="Volume" />

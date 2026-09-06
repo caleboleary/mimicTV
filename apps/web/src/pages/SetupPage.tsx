@@ -138,16 +138,16 @@ export default function SetupPage() {
       <div className="panel">
         <div className="toolbar" style={{ marginBottom: 6 }}>
           <h2>2. Where ErsatzTV Next reads from</h2>
-          <Help><p><b>The folder mimicTV writes for Next.</b> It gets a <code>lineup.json</code>, one folder per channel with its <code>channel.json</code> and playout files, and an <code>xmltv</code> folder for the guide. Point Next at the lineup file.</p><p>Files are kept a few days ahead and topped up on a schedule. Editing a channel rewrites its future from the next break, never the block that's playing.</p></Help>
+          <Help><p><b>The folder mimicTV writes for ErsatzTV Next.</b> It gets a <code>lineup.json</code>, one folder per channel with its <code>channel.json</code> and playout files, and an <code>xmltv</code> folder for the guide. Point ErsatzTV Next at the lineup file.</p><p>ErsatzTV Next reads the lineup only when it starts, so restart it after adding or removing a channel.</p><p>Files are kept a few days ahead and topped up on a schedule. Editing a channel rewrites its future from the next break, never the block that's playing.</p></Help>
         </div>
         <div className="form-grid">
           <label className="field" style={{ gridColumn: '1 / -1' }}>Output folder<input type="text" placeholder="/mnt/user/appdata/ersatztv-next" value={settings.next.outputDir} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, outputDir: e.target.value } }))} /></label>
           <label className="field">Days written ahead<input type="number" min={1} max={14} value={settings.next.horizonDays} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, horizonDays: Math.max(1, Number(e.target.value)) } }))} /></label>
           <label className="field">Top up every (hours)<input type="number" min={0.25} step={0.25} value={settings.next.refreshHours} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, refreshHours: Math.max(0.25, Number(e.target.value)) } }))} /></label>
-          <label className="field" style={{ gridColumn: '1 / -1' }}>Where Next is on your network<input type="text" placeholder="http://192.168.1.10:8410" value={settings.next.publicUrl} onChange={(e) => { setNextUrl(e.target.value); update((s) => ({ ...s, next: { ...s.next, publicUrl: e.target.value } })); }} /><span className="muted small">TV apps get their M3U and guide from here (links in the sidebar), and ▶ on the Guide plays from it.</span></label>
+          <label className="field" style={{ gridColumn: '1 / -1' }}>Where ErsatzTV Next is on your network<input type="text" placeholder="http://192.168.1.10:8410" value={settings.next.publicUrl} onChange={(e) => { setNextUrl(e.target.value); update((s) => ({ ...s, next: { ...s.next, publicUrl: e.target.value } })); }} /><span className="muted small">TV apps get their M3U and guide from here (links in the sidebar), and ▶ on the Guide plays from it.</span></label>
         </div>
-        <Disclosure label="Paths look different on the Next machine">
-          <p className="muted small" style={{ marginTop: 0 }}>If the library was scanned at one path but Next sees the same files at another, map the prefix. Left: as scanned. Right: as Next sees it.</p>
+        <Disclosure label="Paths look different on the ErsatzTV Next machine">
+          <p className="muted small" style={{ marginTop: 0 }}>If the library was scanned at one path but ErsatzTV Next sees the same files at another, map the prefix. Left: as scanned. Right: as ErsatzTV Next sees it.</p>
           {settings.next.pathMap.map((m, i) => (
             <div key={i} className="search-row" style={{ gridTemplateColumns: '1fr auto 1fr auto', marginBottom: 6 }}>
               <input type="text" placeholder="/media" value={m.from} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, pathMap: s.next.pathMap.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)) } }))} />
@@ -164,7 +164,7 @@ export default function SetupPage() {
             <label className="field">Height<input type="number" value={settings.next.video.height} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, video: { ...s.next.video, height: Number(e.target.value) } } }))} /></label>
             <label className="field">Bitrate (kbps)<input type="number" value={settings.next.video.bitrateKbps} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, video: { ...s.next.video, bitrateKbps: Number(e.target.value) } } }))} /></label>
             <label className="field">Hardware accel<input type="text" placeholder="none, vaapi, nvenc, qsv, videotoolbox" value={settings.next.video.accel} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, video: { ...s.next.video, accel: e.target.value } } }))} /></label>
-            <label className="field" style={{ gridColumn: '1 / -1' }}>URL Next can reach mimicTV on, for channels that pick ads live<input type="text" placeholder="http://192.168.1.10:8787 (leave empty to write ads in advance)" value={settings.next.resolverUrl} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, resolverUrl: e.target.value } }))} /></label>
+            <label className="field" style={{ gridColumn: '1 / -1' }}>URL ErsatzTV Next can reach mimicTV on, for channels that pick ads live<input type="text" placeholder="http://192.168.1.10:8787 (leave empty to write ads in advance)" value={settings.next.resolverUrl} onChange={(e) => update((s) => ({ ...s, next: { ...s.next, resolverUrl: e.target.value } }))} /></label>
           </div>
         </Disclosure>
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
