@@ -26,6 +26,14 @@ From source: Node 22+ and ffmpeg on PATH, then `npm install && npm run dev` (app
 
 The Help page in the app walks through the rest: formats, breaks, time bands, fixed shows, mirrors, and what to do when something looks off.
 
+## How it works
+
+ErsatzTV Next reads a flat, timestamped list of "play this file from here to there" and picks the file whose name covers "now", re-reading on every lookup. mimicTV writes those files atomically, a few days ahead. Each channel has a **checkpoint**: cursor state at a moment plus the rules in force then. Replaying those rules is deterministic, so a republish reproduces what was already written up to the next block boundary, then continues with the current rules. The app previews from the same plan, so the Guide is what Next plays.
+
+Everything is JSON on disk under `data/`: rules, library, break decisions, checkpoints. Small, readable, easy to back up.
+
+Docs: [domain model](docs/domain-model.md) · [break points](docs/breaks.md) · [ErsatzTV Next schema notes](docs/next-schema.md) · [development](docs/development.md).
+
 ## Advanced tools
 
 **Break points.** Ad breaks inside an episode need a point where the show fades out. Chapters that came with a file are usually scene marks, not breaks, so mimicTV can find them itself: open a show's Breaks page, press Analyze, and it watches each episode for the fades to black around commercials and lines them up across the season. Check the picks, nudge any it got wrong, and save. Your video files are never written to. Details in [docs/breaks.md](docs/breaks.md).
@@ -37,14 +45,6 @@ The Help page in the app walks through the rest: formats, breaks, time bands, fi
 ```
 
 It reads paths, durations, chapters, and stream facts; nothing else leaves the box. The service builds the library from it on arrival, exactly as a scan would. Paths must be what ErsatzTV Next will see, or add a path mapping in Setup. `-n 50` probes a sample first; `-r` resumes; `-j` gzips.
-
-## How it works
-
-ErsatzTV Next reads a flat, timestamped list of "play this file from here to there" and picks the file whose name covers "now", re-reading on every lookup. mimicTV writes those files atomically, a few days ahead. Each channel has a **checkpoint**: cursor state at a moment plus the rules in force then. Replaying those rules is deterministic, so a republish reproduces what was already written up to the next block boundary, then continues with the current rules. The app previews from the same plan, so the Guide is what Next plays.
-
-Everything is JSON on disk under `data/`: rules, library, break decisions, checkpoints. Small, readable, easy to back up.
-
-Docs: [domain model](docs/domain-model.md) · [break points](docs/breaks.md) · [ErsatzTV Next schema notes](docs/next-schema.md) · [development](docs/development.md).
 
 ## License
 
