@@ -184,6 +184,7 @@ export default function GuidePage() {
                           </div>
                         );
                       }))}
+                      {!sim && <span className="track-hint muted small">no shows picked yet</span>}
                       {nowInView && <div className="nowline" style={{ left: `${pct(now)}%` }} />}
                     </div>
                   </div>

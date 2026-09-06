@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { poolItems, poolShows, fmtClock, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
+import { poolItems, poolShows, fmtClock, newChannelAnchorMs, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 import { useStore , useLibrary } from '../store/store';
@@ -32,7 +32,7 @@ const HELP = {
   shows: (
     <>
       <p><b>What plays.</b> Tick the shows this channel should draw from, then choose how to pick from them. "Shuffle shows, episodes in order" is the classic cable feel: a random show each slot, but every show works through its episodes in order.</p>
-      <p>Leave no shows ticked to use every show in the library. "More options" holds the length range, a season range, and the "skip extras" box that keep stray files off the air.</p>
+      <p>The channel stays blank until at least one show is ticked. "More options" holds the length range, a season range, and the "skip extras" box that keep stray files off the air.</p>
     </>
   ),
   format: (
@@ -406,6 +406,12 @@ export default function ChannelEditorPage() {
           <div className="toolbar">
             <button className="btn primary sm" onClick={() => setStatus(exportDay(channel, ruleset, previewDate))}>Export {previewDate}</button>
             <button className="btn sm" onClick={() => nav(`/channels/${duplicateChannel(channel.id)}`)}>Duplicate</button>
+            <button className="btn sm" title="Forget everything written for this channel and start its timeline again at the current half hour. Whatever is playing on it now is cut off." onClick={async () => {
+              if (!confirm('Restart this channel from now? Its history is forgotten and whatever is playing on it is cut off.')) return;
+              const anchorMs = newChannelAnchorMs();
+              const r = await fetch(`/api/channels/${channel.id}/restart`, { method: 'POST', body: JSON.stringify({ anchorMs }), headers: { 'Content-Type': 'application/json' } }).catch(() => undefined);
+              if (r?.ok) { updateChannel(channel.id, (c) => ({ ...c, anchorMs })); setStatus('✓ restarted from ' + fmtClock(anchorMs)); } else setStatus('restart failed: is the service running?');
+            }}>Restart from now</button>
             <div className="grow" />
             <button className="btn sm danger" onClick={() => { if (confirm('Delete this channel and its private pools?')) { removeChannel(channel.id); nav('/channels'); } }}>Delete</button>
           </div>

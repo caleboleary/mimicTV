@@ -5,7 +5,11 @@ export const DEFAULT_PROGRAM_MIN_MS = 5 * MIN;
 export const DEFAULT_PROGRAM_MAX_MS = 90 * MIN;
 export const PROGRAM_RANGE = { minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS };
 
-/** Where a new channel's timeline starts: today at local midnight, so the first preview day is full. */
+/**
+ * Where a new channel's timeline starts: the half hour that is playing right now. The guide is blank
+ * before that rather than showing a day of invented history, and the first block is one the user picked.
+ */
 export function newChannelAnchorMs(now = Date.now()): number {
-  return localMidnight(now);
+  const half = 30 * MIN;
+  return localMidnight(now) + Math.floor((now - localMidnight(now)) / half) * half;
 }

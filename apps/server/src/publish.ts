@@ -108,7 +108,7 @@ export function publishNow(now = Date.now()): PublishResult {
     server: { bind_address: '0.0.0.0', port: 8409 },
     output: { folder: './hls' },
     xmltv: { folder: './xmltv' },
-    channels: channels.map((c) => ({ number: c.number, name: c.name, config: `./channels/${c.id}/channel.json`, tvg_id: c.tvgId, logo: c.logo || undefined, group: c.group || undefined })),
+    channels: channels.filter((c) => plans.some((p) => p.channel.id === c.id)).map((c) => ({ number: c.number, name: c.name, config: `./channels/${c.id}/channel.json`, tvg_id: c.tvgId, logo: c.logo || undefined, group: c.group || undefined })),
   };
   writeJsonAtomic(path.join(out, 'lineup.json'), lineup);
   writeJsonAtomic(dataFiles.publishLog, result);

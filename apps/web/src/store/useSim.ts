@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo } from 'react';
-import { simulateAll, planPublish, mergeTimeline, expandBlocks, DAY, MIN, type Channel, type Ruleset, type Simulation } from '@mimictv/core';
+import { simulateAll, planPublish, mergeTimeline, expandBlocks, channelReady, DAY, MIN, type Channel, type Ruleset, type Simulation } from '@mimictv/core';
 import { useStore, dateStart , useLibrary } from './store';
 import { useNow } from './useNow';
 
@@ -36,7 +36,8 @@ export function useSims(): Map<string, Simulation | undefined> {
   const stable = useMemo(() => channels, [key]);
   return useMemo(() => {
     const out = new Map<string, Simulation | undefined>();
-    const runnable = stable.filter((c) => c.dayparts.length > 0 && c.dayparts.every((d) => ruleset.clocks.some((k) => k.id === d.clockId)) || (c.mirrorOf && stable.some((s) => s.id === c.mirrorOf)));
+    const ready = stable.filter((c) => channelReady(c, ruleset));
+    const runnable = ready.filter((c) => !c.mirrorOf || ready.some((s) => s.id === c.mirrorOf));
     try {
       const until = Math.max(dateStart(previewDate) + 2 * DAY, ...runnable.map((c) => c.anchorMs + DAY));
       if (published) {

@@ -9,7 +9,7 @@
  */
 import type { Channel, Clock, CursorState, Library, MediaItem, Pool, Role, Ruleset, ScheduledBlock, ScheduledBreak, Simulation, TimelineEntry } from '../types';
 import { DAY, localMidnight } from '../time';
-import { simulate, simulateAll, shiftSimulation } from '../engine/schedule';
+import { simulate, simulateAll, shiftSimulation, channelReady } from '../engine/schedule';
 
 const inWindow = (blocks: ScheduledBlock[], start: number, end: number) => blocks.filter((b) => b.end > start && b.start < end);
 import { toPlayout, playoutFileName, type PlayoutFile, type PlayoutItem } from './playout';
@@ -59,7 +59,10 @@ function replayToBoundary(channel: Channel, ruleset: Ruleset, cp: Checkpoint | u
   return simulate(cp.channel, prevRules, now, { channelId: channel.id, blocks: [], cursors: cp.cursors });
 }
 
-export function planPublish(channels: Channel[], ruleset: Ruleset, opts: PublishOptions): ChannelPlan[] {
+export function planPublish(allChannels: Channel[], ruleset: Ruleset, opts: PublishOptions): ChannelPlan[] {
+  // A channel with no shows picked yet is not written at all; its mirrors wait with it.
+  const ready = allChannels.filter((c) => channelReady(c, ruleset));
+  const channels = ready.filter((c) => !c.mirrorOf || ready.some((s) => s.id === c.mirrorOf));
   const byId = new Map(channels.map((c) => [c.id, c]));
   const sources = channels.filter((c) => !c.mirrorOf || !byId.has(c.mirrorOf));
   const until = nextMidnight(opts.now) + opts.horizonDays * DAY;

@@ -170,6 +170,22 @@ route('GET', '/api/published', (_r, res) => {
   json(res, { at: last?.at ?? null, checkpoints: store.checkpoints(), timelines });
 });
 
+// ---- restart a channel from a moment: forget its history and write it fresh from there
+route('POST', '/api/channels/:id/restart', async (req, res, p) => {
+  const { anchorMs } = JSON.parse((await body(req)).toString()) as { anchorMs: number };
+  const rules = store.rules();
+  const ch = rules?.channels.find((c) => c.id === p.id);
+  if (!rules || !ch) { json(res, { error: 'No such channel' }, 404); return; }
+  store.saveRules({ ...rules, channels: rules.channels.map((c) => (c.id === ch.id ? { ...c, anchorMs } : c)) });
+  const checkpoints = store.checkpoints(); delete checkpoints[ch.id]; store.saveCheckpoints(checkpoints);
+  store.deleteTimeline(ch.id);
+  const out = store.settings().next.outputDir;
+  if (out) fs.rmSync(path.join(path.resolve(out), 'channels', ch.id, 'playout'), { recursive: true, force: true });
+  clearTimeout(debounce);
+  safePublish('restart');
+  json(res, { ok: true });
+});
+
 // ---- live breaks: Next asks for the next item while inside a dynamic placeholder
 const livePlayed: Record<string, number> = {};
 route('GET', '/dynamic/:channelId', (req, res, _p, url) => {

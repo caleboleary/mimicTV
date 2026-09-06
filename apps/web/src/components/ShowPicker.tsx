@@ -25,7 +25,7 @@ export default function ShowPicker({ library, selected, onChange }: Props) {
     <div>
       <div className="toolbar" style={{ marginBottom: 8 }}>
         <input type="text" placeholder="filter shows…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 200 }} />
-        <span className="muted small">{selected.length === 0 ? 'none selected = every show' : `${selected.length} selected`}</span>
+        <span className="muted small">{selected.length === 0 ? 'no shows yet: the channel stays blank until you pick some' : `${selected.length} selected`}</span>
         {selected.length > 0 && <button className="btn sm" onClick={() => onChange([])}>clear</button>}
       </div>
       <div className="chips" style={{ flexWrap: 'wrap' }}>

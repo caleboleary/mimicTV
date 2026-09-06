@@ -95,3 +95,16 @@ describe('published block timelines', () => {
     expect(block!.end).toBeLessThanOrEqual(plan!.boundary);
   });
 });
+
+describe('channels without shows', () => {
+  it('are not planned, and a new anchor is the current half hour', async () => {
+    const { channelReady, newChannelAnchorMs } = await import('../src/index');
+    const pool = base.pools.find((p) => p.id === 'pool-sitcoms')!;
+    const empty: Ruleset = { ...base, pools: base.pools.map((p) => (p.id === pool.id ? { ...p, filter: { ...p.filter, showIds: [] } } : p)) };
+    expect(channelReady(retro, base)).toBe(true);
+    expect(channelReady(retro, empty)).toBe(false);
+    expect(planPublish([retro], empty, { now, horizonDays: 1, checkpoints: {} })).toEqual([]);
+    const t = new Date(2026, 8, 6, 15, 13, 0).getTime();
+    expect(new Date(newChannelAnchorMs(t)).toTimeString().slice(0, 5)).toBe('15:00');
+  });
+});

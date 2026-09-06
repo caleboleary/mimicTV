@@ -89,6 +89,23 @@ interface Segment {
 
 const DEFAULT_MIN_SEGMENT_MS = 3 * MIN;
 
+/**
+ * A channel can run once every band has a clock and every clock's show pool has been given shows.
+ * A show pool with an explicitly empty list is one the user has not filled in yet: until then the
+ * channel is left blank rather than scheduled from the whole library.
+ */
+export function channelReady(channel: Channel, ruleset: Pick<Ruleset, 'pools' | 'clocks'>): boolean {
+  if (channel.mirrorOf) return true;
+  if (channel.dayparts.length === 0) return false;
+  for (const d of channel.dayparts) {
+    const clock = ruleset.clocks.find((k) => k.id === d.clockId);
+    if (!clock) return false;
+    const pool = ruleset.pools.find((p) => p.id === clock.program.poolId);
+    if (!pool || (pool.filter.showIds !== undefined && pool.filter.showIds.length === 0)) return false;
+  }
+  return true;
+}
+
 /** Candidate cut points for a program: its own break points if allowed and present, else the clock's fallback. */
 export function candidateCuts(program: MediaItem, breaks: Clock['breaks']): number[] {
   if (program.noBreaks) return [];

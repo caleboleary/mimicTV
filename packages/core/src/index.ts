@@ -9,7 +9,7 @@ export { applyBreaks, fileBreaks } from './breaks/compose';
 export { DEFAULT_DETECT, SENSITIVITY } from './breaks/types';
 export type { BlackRow, SceneWindow, DetectSettings, MeasuredFile, BreakMark, BreakDecision, FileBreaks, ShowBreaks } from './breaks/types';
 export { BLACK } from './engine/select';
-export { simulate, simulateAll, shiftSimulation, freshCursors, clockForTime, daypartForTime, bandActiveOn, hardStopAfter, blocksInWindow, entriesInWindow, candidateCuts, adPoolFor } from './engine/schedule';
+export { simulate, simulateAll, shiftSimulation, freshCursors, channelReady, clockForTime, daypartForTime, bandActiveOn, hardStopAfter, blocksInWindow, entriesInWindow, candidateCuts, adPoolFor } from './engine/schedule';
 export { toPlayout, playoutFileName, PLAYOUT_SCHEMA_VERSION } from './emit/playout';
 export type { PlayoutFile, PlayoutItem } from './emit/playout';
 export { toXmltv, programmesFor } from './emit/xmltv';
