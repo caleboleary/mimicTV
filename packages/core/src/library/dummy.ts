@@ -63,6 +63,12 @@ export function buildDummyIdsAndFiller(seed = 'dummy-ids'): MediaItem[] {
       tags: ['network-id', DUMMY_TAG], breakPoints: [], breakSource: 'none',
     });
   });
+  ['Coming Up Next', 'We\'ll Be Right Back', 'Now Back To The Show', 'Stay Tuned'].forEach((title, i) => {
+    items.push({
+      id: `dummy-bumper-${i + 1}`, kind: 'bumper', title, path: `/media/bumpers/${title.replace(/[^a-z0-9]+/gi, '_')}.mp4`,
+      durationMs: (3 + rng.int(4)) * SEC + rng.int(900), tags: ['bumper', DUMMY_TAG], breakPoints: [], breakSource: 'none',
+    });
+  });
   items.push({
     id: 'dummy-static-card', kind: 'filler', title: 'Static Card (image)', path: '/media/filler/static_card.png',
     durationMs: 0, tags: ['filler', 'still', DUMMY_TAG], breakPoints: [], breakSource: 'none', trimmable: true, still: true,

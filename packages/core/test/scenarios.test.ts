@@ -145,8 +145,32 @@ describe('scenario table', () => {
     }
   });
 
-  it.todo('13. bumper out before every break and bumper in after (needs break templates / slot lists)');
-  it.todo('14. "coming up next" bumper at the end of every program (needs program pre/post-roll slots)');
+  describe('bumpers', () => {
+    const bumpers: Pool = { id: 'pool-bumpers', name: 'bumpers', filter: { kinds: ['bumper'] }, selection: 'shuffle' };
+    it('13. bumper into every break and bumper out after the ID', () => {
+      const { blocks } = run(withClock({ breaks: { bumpers: { before: bumpers.id, after: bumpers.id } } }), [bumpers], 3);
+      const breaks = blocks.flatMap((b) => b.breaks).filter((k) => k.entries.length > 0);
+      expect(breaks.length).toBeGreaterThan(3);
+      for (const k of breaks) {
+        expect(k.entries[0]!.role).toBe('bumper');
+        expect(k.entries[k.entries.length - 1]!.role).toBe('bumper');
+        const id = k.entries.findIndex((e) => e.role === 'network-id');
+        if (id >= 0) expect(id).toBe(k.entries.length - 2); // ID stays just before the bumper out
+        expect(k.end - k.start).toBe(k.targetMs); // bumpers came out of the budget, not added to it
+      }
+    });
+    it('14. "coming up next" only in the break after a program ends, not at chapter cuts', () => {
+      const { blocks } = run(withClock({ breaks: { bumpers: { afterProgram: bumpers.id } } }), [bumpers], 3);
+      for (const b of blocks) {
+        const segs = b.entries.filter((e) => e.role === 'program');
+        for (const k of b.breaks) {
+          const prev = segs.filter((e) => e.end <= k.start).pop()!;
+          const endsProgram = prev.partIndex === prev.partCount! - 1;
+          expect(k.entries[0]?.role === 'bumper').toBe(endsProgram);
+        }
+      }
+    });
+  });
 
   it('15. ads themed to an era: a channel-wide 90s-only commercial pool via saved search', () => {
     const ads: Pool = { id: 'pool-90s-search', name: '90s', filter: { kinds: ['commercial'], any: [{ folder: '/media/commercials/90s' }] }, selection: 'random', noRepeatMs: HOUR };
@@ -155,7 +179,19 @@ describe('scenario table', () => {
     expect(played.length).toBeGreaterThan(20);
     expect(played.every((e) => e.item.path.startsWith('/media/commercials/90s/'))).toBe(true);
   });
-  it.todo('15b. per-show override of the commercial pool (ads follow the show, not the channel)');
+  it('15b. ads follow the show: one show uses the 80s pool, the rest use the channel pool', () => {
+    const eighties: Pool = { id: 'pool-80s', name: '80s', filter: { kinds: ['commercial'], any: [{ folder: '/media/commercials/80s' }] }, selection: 'random', noRepeatMs: HOUR };
+    const pool = showPool('pool-two-b', ['parkside', 'the-larsons']);
+    const clock = withClock({ program: { poolId: pool.id, allowMultiple: false }, breaks: { poolId: 'pool-ads-90s', overrides: [{ showIds: ['the-larsons'], poolId: eighties.id }] } });
+    const { blocks } = run(clock, [pool, eighties], 8);
+    expect(new Set(blocks.map((b) => b.programs[0]!.showId)).size).toBe(2);
+    for (const b of blocks) {
+      const ads = b.entries.filter((e) => e.role === 'commercial');
+      expect(ads.length).toBeGreaterThan(0);
+      const era = b.programs[0]!.showId === 'the-larsons' ? '80s' : '90s';
+      expect(ads.every((e) => e.item.path.includes(`/commercials/${era}/`))).toBe(true);
+    }
+  });
 
   describe('16. a fixed show at 18:00 every day, whatever else is on', () => {
     const simpsons = showPool('pool-fixed', ['parkside']);

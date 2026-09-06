@@ -3,7 +3,7 @@ import { poolItems, libraryFolders, termsMatch, fmtDuration, MIN, type FilterTer
 import ShowPicker from './ShowPicker';
 import { Disclosure } from './Card';
 
-const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'filler'];
+const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'bumper', 'filler'];
 export const MODES: { v: SelectionMode; label: string }[] = [
   { v: 'shows-shuffled-episodes-in-order', label: 'Shuffle shows, episodes in order' },
   { v: 'sequential', label: 'Sequential' },

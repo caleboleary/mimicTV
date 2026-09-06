@@ -41,7 +41,8 @@ export function parseProbeJsonl(text: string): { header?: ProbeHeader; records: 
 
 const KIND_KEYWORDS: [RegExp, MediaKind][] = [
   [/commercial|advert|\bads?\b/i, 'commercial'],
-  [/\bids?\b|ident|bumper|station/i, 'network-id'],
+  [/bumper|bump\b/i, 'bumper'],
+  [/\bids?\b|ident|station/i, 'network-id'],
   [/filler|static|interstitial|glitch|test.?card/i, 'filler'],
   [/movie|film/i, 'movie'],
   [/\btv\b|show|series|episode|anime|cartoon/i, 'episode'],

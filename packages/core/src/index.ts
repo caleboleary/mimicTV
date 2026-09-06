@@ -4,7 +4,7 @@ export { rngFor, hashString } from './rng';
 export { buildStubLibrary } from './library/stub';
 export { poolItems, poolShows, itemMatches, termsMatch, libraryFolders } from './engine/pools';
 export { BLACK } from './engine/select';
-export { simulate, freshCursors, clockForTime, daypartForTime, hardStopAfter, blocksInWindow, entriesInWindow, candidateCuts } from './engine/schedule';
+export { simulate, freshCursors, clockForTime, daypartForTime, hardStopAfter, blocksInWindow, entriesInWindow, candidateCuts, adPoolFor } from './engine/schedule';
 export { toPlayout, playoutFileName, PLAYOUT_SCHEMA_VERSION } from './emit/playout';
 export type { PlayoutFile, PlayoutItem } from './emit/playout';
 export { toXmltv, programmesFor } from './emit/xmltv';

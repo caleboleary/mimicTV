@@ -7,7 +7,7 @@ import {
 import { useStore } from '../store/store';
 import PoolEditor, { MODES } from '../components/PoolEditor';
 
-const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'filler'];
+const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'bumper', 'filler'];
 type Tab = 'overview' | 'shows' | 'collections' | 'import';
 
 async function readBlobText(blob: Blob, name: string): Promise<string> {

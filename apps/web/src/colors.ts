@@ -11,5 +11,6 @@ export function entryColor(item: MediaItem, role: Role): string {
   }
   if (role === 'commercial') return 'var(--ad)';
   if (role === 'network-id') return 'var(--accent)';
+  if (role === 'bumper') return 'var(--bumper)';
   return 'var(--filler)';
 }

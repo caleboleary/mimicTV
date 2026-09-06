@@ -44,7 +44,7 @@ export default function DayPreview({ channel, sim, selectedBlockId, onSelect }: 
     for (const b of blocks) for (const e of b.entries) {
       const s = Math.max(e.start, dayStart), f = Math.min(e.end, dayEnd);
       if (f <= s) continue;
-      if (e.role === 'program') t.program += f - s; else if (e.role === 'commercial') t.commercial += f - s; else if (e.role === 'filler') t.filler += f - s; else t.ids++;
+      if (e.role === 'program') t.program += f - s; else if (e.role === 'commercial') t.commercial += f - s; else if (e.role === 'filler') t.filler += f - s; else if (e.role === 'network-id') t.ids++;
     }
     return t;
   }, [blocks, dayStart, dayEnd]);
@@ -73,6 +73,7 @@ export default function DayPreview({ channel, sim, selectedBlockId, onSelect }: 
         <span><i style={{ background: 'hsl(200 55% 52%)' }} />program (color = show)</span>
         <span><i style={{ background: 'var(--ad)' }} />commercial</span>
         <span><i style={{ background: 'var(--accent)' }} />network ID</span>
+        <span><i style={{ background: 'var(--bumper)' }} />bumper</span>
         <span><i style={{ background: 'var(--filler)' }} />filler / pad</span>
         <span className="muted">· click a block to inspect</span>
       </div>

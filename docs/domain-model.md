@@ -4,7 +4,7 @@ mimicTV owns all scheduling meaning. ErsatzTV Next is a timeline player; it neve
 
 ## Library
 
-`Show` and `MediaItem`. An item has a kind (`episode`, `movie`, `commercial`, `network-id`, `filler`), a duration, tags, and a list of **break points** (ms offsets) with a provenance (`chapters`, `blackdetect`, `manual`, `none`). Filler can be `trimmable` (cut to any length) and `still` (an image whose audio is synthesized silence).
+`Show` and `MediaItem`. An item has a kind (`episode`, `movie`, `commercial`, `network-id`, `bumper`, `filler`), a duration, tags, and a list of **break points** (ms offsets) with a provenance (`chapters`, `blackdetect`, `manual`, `none`). Filler can be `trimmable` (cut to any length) and `still` (an image whose audio is synthesized silence).
 
 The POC uses a deterministic stub library. Real ingest (local folders + ffprobe, then media servers) replaces `buildStubLibrary()` without touching the engine.
 
@@ -26,6 +26,8 @@ The format for one program slot. A clock says:
 - **Program**: which pool, the content target (22 min), a tolerance, and whether to stack programs to reach the target (two 11-minute cartoons).
 - **Breaks**: cut programs at their break points and insert a mid-roll at each cut. Fill from a commercial pool. Either **equalize** every break in the block, or give mid-rolls a fixed target and let the post-roll absorb the rest.
 - **Network ID**: when a break ends within `windowMs` of a boundary (`:00`, `:30`), pick an ID and play it **last**.
+- **Bumpers** (optional): a "coming up next" pool that plays right after a program ends, a pool that opens every break, and a pool that closes every break after the ID. They come out of the break's time.
+- **Overrides** (optional): while certain shows are on, draw commercials from a different pool.
 - **Pad**: every block ends on the next multiple of `toMinutes`. The gap after commercials is filled from a filler pool. Trimmable filler guarantees an exact landing; the engine falls back to synthesized black if nothing fits.
 - **Bug**: optional channel logo shown on programs, hidden during breaks.
 

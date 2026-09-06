@@ -66,7 +66,7 @@ describe('probe import', () => {
     expect(parseEpisode("Foster's Home for Imaginary Friends 501 Cheese a Go-Go")).toMatchObject({ season: 5, episode: 1 });
     expect(parseEpisode('Some Movie 2007 1080p WEB-DL')).toBeUndefined();
     expect(parseEpisode('Something (480p)')).toBeUndefined();
-    expect(guessKind('/mnt/user/Bumpers', '/mnt/user/Bumpers/x.mp4', 5000)).toBe('network-id');
+    expect(guessKind('/mnt/user/Bumpers', '/mnt/user/Bumpers/x.mp4', 5000)).toBe('bumper');
   });
 });
 

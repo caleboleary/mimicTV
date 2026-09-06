@@ -76,6 +76,7 @@ function newInterstitialPool(kind: MediaKind, ownerChannelId: string | undefined
   const base = { id: uid(`pool-${kind}`), ownerChannelId, filter: { kinds: [kind] } };
   if (kind === 'commercial') return { ...base, name: `${channelName} commercials`, selection: 'random', noRepeatMs: HOUR };
   if (kind === 'network-id') return { ...base, name: `${channelName} IDs`, selection: 'shuffle' };
+  if (kind === 'bumper') return { ...base, name: `${channelName} bumpers`, selection: 'shuffle' };
   return { ...base, name: `${channelName} filler`, selection: 'random', noRepeatMs: 30 * MIN };
 }
 

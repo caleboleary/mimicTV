@@ -1,7 +1,7 @@
 // Domain model for mimicTV. Nothing in here knows about the Next playout JSON shape;
 // that lives exclusively in emit/.
 
-export type MediaKind = 'episode' | 'movie' | 'commercial' | 'network-id' | 'filler';
+export type MediaKind = 'episode' | 'movie' | 'commercial' | 'network-id' | 'bumper' | 'filler';
 
 export interface Show {
   id: string;
@@ -136,6 +136,17 @@ export interface Clock {
      * 1 (default) = a break between every program; 0 = never break between programs, only inside them and after the slot.
      */
     betweenPrograms?: number;
+    /** Optional bumper pools. Each plays once per break where it applies and comes out of the break's time. */
+    bumpers?: {
+      /** First thing in every break ("we'll be right back"). */
+      before?: string;
+      /** Last thing in every break, after the network ID ("now back to the show"). */
+      after?: string;
+      /** Only in breaks that follow the end of a program ("coming up next"). Plays before `before`. */
+      afterProgram?: string;
+    };
+    /** Use a different commercial pool while certain shows are on. First match wins. */
+    overrides?: { showIds: string[]; poolId: string }[];
   };
   networkId: {
     enabled: boolean;
@@ -201,7 +212,7 @@ export interface CursorState {
   rngState?: number;
 }
 
-export type Role = 'program' | 'commercial' | 'network-id' | 'filler';
+export type Role = 'program' | 'commercial' | 'network-id' | 'bumper' | 'filler';
 
 export interface TimelineEntry {
   id: string;

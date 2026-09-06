@@ -14,7 +14,7 @@ const [retro, toons] = defaultChannels();
 describe('stub library', () => {
   it('has shows, ads, ids, and filler', () => {
     const kinds = new Set(ruleset.library.items.map((i) => i.kind));
-    expect([...kinds].sort()).toEqual(['commercial', 'episode', 'filler', 'network-id']);
+    expect([...kinds].sort()).toEqual(['bumper', 'commercial', 'episode', 'filler', 'network-id']);
     expect(ruleset.library.shows.length).toBe(8);
   });
 });

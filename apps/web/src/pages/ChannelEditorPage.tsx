@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { poolItems, fmtClock, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
+import { poolItems, poolShows, fmtClock, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
 import { useStore } from '../store/store';
 import { useRuleset, useSim } from '../store/useSim';
 import { exportDay } from '../export';
@@ -10,8 +10,14 @@ import FormatEditor from '../components/FormatEditor';
 import DayPreview, { DateBar } from '../components/DayPreview';
 import BlockDetail from '../components/BlockDetail';
 
-type Role = 'program' | 'commercial' | 'network-id' | 'filler';
-const ROLE_LABEL: Record<Role, string> = { program: 'Shows', commercial: 'Commercials', 'network-id': 'Network IDs', filler: 'Filler / pad' };
+type Role = 'program' | 'commercial' | 'network-id' | 'filler' | 'bumper';
+const ROLE_LABEL: Record<Role, string> = { program: 'Shows', commercial: 'Commercials', 'network-id': 'Network IDs', filler: 'Filler / pad', bumper: 'Bumpers' };
+type BumperSlot = 'before' | 'after' | 'afterProgram';
+const BUMPER_LABEL: Record<BumperSlot, { title: string; hint: string }> = {
+  afterProgram: { title: 'When a show ends', hint: '"Coming up next". Plays once, right after the program, before anything else.' },
+  before: { title: 'Going into a break', hint: '"We\'ll be right back". First thing in every break.' },
+  after: { title: 'Coming out of a break', hint: '"Now back to the show". Last thing in every break, after the network ID.' },
+};
 
 const HELP = {
   schedule: (
@@ -38,6 +44,7 @@ const HELP = {
     <>
       <p><b>What fills the gaps.</b> Commercials play first in each break, filler pads any remainder, and a network ID plays last when a break ends near :00 or :30.</p>
       <p>Each one is a pool. A private pool belongs to this channel; a shared collection is reused across channels and edited in the Library. Use saved searches to narrow a pool, e.g. "nike" in your commercials folder.</p>
+      <p>Underneath: "Different ads for some shows" swaps the commercial pool while certain shows are on, and "Bumpers" adds short stings when a show ends, going into a break, and coming out of one.</p>
     </>
   ),
   identity: (
@@ -130,7 +137,7 @@ function PoolSlot({ role, poolId, channelId, onPick }: { role: Role; poolId: str
           <button className="btn sm" onClick={() => onPick(detachPool(pool.id, channelId))}>Make a private copy</button>
         </div>
       )}
-      {!pool && role !== 'program' && <div className="muted small">None: {role === 'commercial' ? 'breaks will hold only filler' : role === 'network-id' ? 'no station IDs' : 'gaps are padded with black'}.</div>}
+      {!pool && role !== 'program' && <div className="muted small">None: {role === 'commercial' ? 'breaks will hold only filler' : role === 'network-id' ? 'no station IDs' : role === 'bumper' ? 'no bumper here' : 'gaps are padded with black'}.</div>}
     </div>
   );
 }
@@ -169,6 +176,12 @@ export default function ChannelEditorPage() {
 
   const setClock = (patch: (c: Clock) => Clock) => clock && updateClock(clock.id, patch);
   const pickPool = (role: Role) => (pid: string) => setClock((c) => role === 'program' ? { ...c, program: { ...c.program, poolId: pid } } : role === 'commercial' ? { ...c, breaks: { ...c.breaks, poolId: pid } } : role === 'network-id' ? { ...c, networkId: { ...c.networkId, poolId: pid } } : { ...c, pad: { ...c.pad, poolId: pid } });
+  const pickBumper = (slot: BumperSlot) => (pid: string) => setClock((c) => ({ ...c, breaks: { ...c.breaks, bumpers: { ...c.breaks.bumpers, [slot]: pid || undefined } } }));
+  const overrides = clock?.breaks.overrides ?? [];
+  const setOverrides = (next: { showIds: string[]; poolId: string }[]) => setClock((c) => ({ ...c, breaks: { ...c.breaks, overrides: next.length ? next : undefined } }));
+  const adPools = pools.filter((p) => poolFitsRole(p, 'commercial') && (!p.ownerChannelId || p.ownerChannelId === channel?.id));
+  const bandShows = programPool ? poolShows(programPool, library).map((s) => s.showId) : [];
+  const bumperCount = clock ? (['before', 'after', 'afterProgram'] as BumperSlot[]).filter((s) => clock.breaks.bumpers?.[s]).length : 0;
   const makeClockPrivate = () => {
     if (!clock || !band) return;
     const copy: Clock = { ...structuredClone(clock), id: `clock-${Date.now().toString(36)}`, ownerChannelId: channel.id };
@@ -253,14 +266,54 @@ export default function ChannelEditorPage() {
                 )}
                 <FormatEditor clock={clock} onChange={setClock} />
               </Card>
-              <Card title="Breaks" help={HELP.breaks} summary={[clock.breaks.poolId && 'ads', clock.networkId.enabled && clock.networkId.poolId && 'IDs', clock.pad.poolId && 'filler'].filter(Boolean).join(' · ') || 'nothing'} open={false}>
+              <Card title="Breaks" help={HELP.breaks} summary={[clock.breaks.poolId && 'ads', clock.networkId.enabled && clock.networkId.poolId && 'IDs', clock.pad.poolId && 'filler', bumperCount > 0 && `${bumperCount} bumper${bumperCount === 1 ? '' : 's'}`, overrides.length > 0 && 'show-specific ads'].filter(Boolean).join(' · ') || 'nothing'} open={false}>
                 <div className="recipe" style={{ gap: 16 }}>
                   {(['commercial', 'network-id', 'filler'] as Role[]).map((role) => (
                     <div key={role}>
                       <h3 style={{ marginBottom: 6 }}>{ROLE_LABEL[role]}</h3>
                       <PoolSlot role={role} poolId={role === 'commercial' ? clock.breaks.poolId : role === 'network-id' ? clock.networkId.poolId : clock.pad.poolId} channelId={channel.id} onPick={pickPool(role)} />
+                      {role === 'commercial' && (
+                        <Disclosure label={overrides.length ? `Different ads for some shows (${overrides.length})` : 'Different ads for some shows'}>
+                          <div className="recipe" style={{ gap: 10 }}>
+                            {overrides.map((o, i) => (
+                              <div key={i} className="override">
+                                <div className="chips" style={{ flexWrap: 'wrap' }}>
+                                  {bandShows.map((sid) => {
+                                    const on = o.showIds.includes(sid);
+                                    const title = library.shows.find((s) => s.id === sid)?.title ?? sid;
+                                    return <button key={sid} className={`chip${on ? ' on' : ''}`} onClick={() => setOverrides(overrides.map((x, j) => j === i ? { ...x, showIds: on ? x.showIds.filter((y) => y !== sid) : [...x.showIds, sid] } : x))}>{title}</button>;
+                                  })}
+                                  {bandShows.length === 0 && <span className="muted small">Pick shows in the Shows section first.</span>}
+                                </div>
+                                <div className="toolbar" style={{ marginBottom: 0 }}>
+                                  <span className="muted small">use</span>
+                                  <select value={o.poolId} onChange={(e) => setOverrides(overrides.map((x, j) => j === i ? { ...x, poolId: e.target.value } : x))}>
+                                    <option value="">— pick a commercial pool —</option>
+                                    {adPools.map((p) => <option key={p.id} value={p.id}>{p.name} · {poolItems(p, library).length}</option>)}
+                                  </select>
+                                  <div className="grow" />
+                                  <button className="btn sm" onClick={() => setOverrides(overrides.filter((_, j) => j !== i))}>×</button>
+                                </div>
+                              </div>
+                            ))}
+                            <div><button className="btn sm" onClick={() => setOverrides([...overrides, { showIds: [], poolId: '' }])}>+ add a rule</button></div>
+                            <p className="muted small" style={{ margin: 0 }}>While one of the ticked shows is on, its breaks draw from that pool instead. Make a pool in the Library as a shared collection, or "+ new private pool" above, then pick it here.</p>
+                          </div>
+                        </Disclosure>
+                      )}
                     </div>
                   ))}
+                  <Disclosure label={bumperCount ? `Bumpers (${bumperCount})` : 'Bumpers'}>
+                    <div className="recipe" style={{ gap: 14 }}>
+                      {(['afterProgram', 'before', 'after'] as BumperSlot[]).map((slot) => (
+                        <div key={slot}>
+                          <h3 style={{ marginBottom: 2 }}>{BUMPER_LABEL[slot].title}</h3>
+                          <p className="muted small" style={{ margin: '0 0 6px' }}>{BUMPER_LABEL[slot].hint}</p>
+                          <PoolSlot role="bumper" poolId={clock.breaks.bumpers?.[slot] ?? ''} channelId={channel.id} onPick={pickBumper(slot)} />
+                        </div>
+                      ))}
+                    </div>
+                  </Disclosure>
                 </div>
               </Card>
             </>

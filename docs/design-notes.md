@@ -20,9 +20,9 @@ Checked against the engine as of today. "Yes" means it works now with the curren
 | 10 | Two episodes of the same show, then switch | yes | "Episodes of a show in a row" on the Shows card (2026-09-05) |
 | 11 | Only seasons 1 to 3 of a show | yes | season range under Shows > More options (2026-09-05) |
 | 12 | Music videos with a bumper every 4 clips | yes | "Music videos" preset; break after every N stacked programs (2026-09-05) |
-| 13 | Bumper out before every break, bumper in after | no | break template: ordered slots (bumper, ads, filler, ID, bumper) |
-| 14 | "Coming up next" bumper at the end of every program | no | program pre/post-roll slots (same mechanism as 13) |
-| 15 | Ads themed to the era of the show playing | half | a channel-wide era pool works via saved searches (text + folder, OR rows); per-show override of the commercial pool is still missing |
+| 13 | Bumper out before every break, bumper in after | yes | Breaks > Bumpers: pools for going into / coming out of a break (2026-09-06) |
+| 14 | "Coming up next" bumper at the end of every program | yes | Breaks > Bumpers: "when a show ends" slot, skipped at chapter cuts (2026-09-06) |
+| 15 | Ads themed to the era of the show playing | yes | Breaks > Commercials > "Different ads for some shows": show list + pool, first match wins (2026-09-06) |
 | 16 | The Simpsons at 6pm every day, whatever else is going on | yes | fixed shows: a band with an end time; blocks around it are clamped (2026-09-06) |
 | 17 | Saturday-morning-only cartoons | no | day-of-week on bands; fixed shows already carry the band object this hangs off |
 | 18 | Holiday specials only in December | no | date windows on pools |
@@ -87,11 +87,12 @@ Rule from the owner (2026-09-05): the shortest path must never get longer. New c
 
 1. ~~Restructure the UI to channel-centric with inline pools and formats.~~ Done 2026-09-04.
 2. ~~Close the small engine gaps (rows 8 to 12).~~ Done 2026-09-05, behind presets and disclosures so the default path didn't grow.
-3. ~~Slot lists (rows 13 to 16)~~ Replaced by three small features: fixed shows (16, done 2026-09-06), bumpers as a break recipe (13, 14), per-show ad override (15b). Then calendar (17 to 19), then cursor editing (20).
+3. ~~Slot lists (rows 13 to 16)~~ Replaced by three small features, all done 2026-09-06: fixed shows (16), bumpers (13, 14), per-show ad override (15). Next: calendar (17 to 19), cursor editing (20).
 4. ~~Guide view once there are two or more channels.~~ Done 2026-09-04; cross-channel no-repeat (21) still belongs there.
 
 ## 4. Done since
 
+- 2026-09-06 (later): rows 13, 14, 15 closed. New `bumper` media kind (importer maps "bumper" folders to it; dummies and stub include some). Break shape is now: coming-up-next, bumper in, ads, filler, ID, bumper out, each optional. Per-show commercial overrides on the clock. Both live under disclosures in the Breaks card.
 - 2026-09-06: row 16 closed as **fixed shows**. Decision: no generic slot-list clock. Rows 13/14 become a break recipe (optional bumper parts), 15b a per-show ad override, 16 an appointment band. Each is one hidden entry point, none touches the default path. See "Keeping it simple".
 - 2026-09-05 (later): rows 8, 10, 11, 12 closed in the engine (pad-to-none, run length, season range, break every N stacked programs). Scenario table is now executable: `packages/core/test/scenarios.test.ts`, one test per row, open rows as `it.todo`. UI simplicity pass: Format card is six plain-language presets with every knob under "Customize"; Shows card is picker + order with the rest under "More options"; interstitial pools show one summary line with the editor behind "Edit".
 - 2026-09-05: pool length range (min/max), saved searches replacing tag chips, break fallback (interval / offsets) with a chapters-honored switch, removed the hidden 24-ads-per-break cap, pool contents cached per simulation run (450 ms to 30 ms on a 3.6k-item library), help tooltips on channel sections.

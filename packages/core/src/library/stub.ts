@@ -111,6 +111,16 @@ export function buildStubLibrary(): Library {
     });
   });
 
+  // Bumpers: short branded stings around breaks.
+  ['Coming Up Next', 'We\'ll Be Right Back', 'Now Back To The Show', 'Stay Tuned'].forEach((title, i) => {
+    items.push({
+      id: `bumper-${i + 1}`, kind: 'bumper', title,
+      path: `/media/bumpers/${title.replace(/[^a-z0-9]+/gi, '_')}.mp4`,
+      durationMs: (3 + rng.int(4)) * SEC + rng.int(900),
+      tags: ['bumper'], breakPoints: [], breakSource: 'none',
+    });
+  });
+
   // Filler: a trimmable static image and a few glitch/static clips.
   items.push({
     id: 'filler-static-card',

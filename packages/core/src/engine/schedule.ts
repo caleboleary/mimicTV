@@ -107,11 +107,20 @@ function segmentsFor(program: MediaItem, programIndex: number, breaks: Clock['br
   return out;
 }
 
+/** The commercial pool for a break: a per-show override if the show playing has one, else the clock's. */
+export function adPoolFor(breaks: Clock['breaks'], showId: string | undefined): string {
+  if (showId && breaks.overrides) {
+    const o = breaks.overrides.find((x) => x.poolId && x.showIds.includes(showId));
+    if (o) return o.poolId;
+  }
+  return breaks.poolId;
+}
+
 function fillBreak(
   ctx: Ctx,
   clock: Clock,
   blockId: string,
-  brk: { index: number; kind: 'mid' | 'post' },
+  brk: { index: number; kind: 'mid' | 'post'; afterProgram: boolean; showId?: string },
   start: number,
   targetMs: number,
   nextId: () => string,
@@ -120,24 +129,41 @@ function fillBreak(
   const end = start + targetMs;
   const nearBoundary =
     clock.networkId.enabled && distanceToBoundary(end, clock.networkId.nearMinutes) <= clock.networkId.windowMs;
+  const used = new Set<string>();
+
+  // Bumpers come out of the budget first: they are short and the point of the break's shape.
+  const bumpers = clock.breaks.bumpers;
+  const pickBumper = (poolId: string | undefined, room: number) => {
+    if (!poolId || room <= 0) return undefined;
+    const b = ctx.selector.pickInterstitial(poolId, start, room, used);
+    if (b && !b.trimmable) { used.add(b.id); return b; }
+    return undefined;
+  };
+  let room = targetMs;
+  const nextUp = brk.afterProgram ? pickBumper(bumpers?.afterProgram, room) : undefined;
+  room -= nextUp?.durationMs ?? 0;
+  const bumperIn = pickBumper(bumpers?.before, room);
+  room -= bumperIn?.durationMs ?? 0;
+  const bumperOut = pickBumper(bumpers?.after, room);
+  room -= bumperOut?.durationMs ?? 0;
 
   let idItem: MediaItem | undefined;
-  if (nearBoundary && targetMs > 0) {
-    idItem = ctx.selector.pickInterstitial(clock.networkId.poolId, start, targetMs);
+  if (nearBoundary && room > 0) {
+    idItem = ctx.selector.pickInterstitial(clock.networkId.poolId, start, room);
   }
   const idMs = idItem ? idItem.durationMs : 0;
-  const budget = targetMs - idMs;
+  const budget = room - idMs;
+  const adPoolId = adPoolFor(clock.breaks, brk.showId);
 
   // Commercials first.
   const ads: MediaItem[] = [];
-  const used = new Set<string>();
   let usedMs = 0;
-  if (clock.breaks.poolId) {
+  if (adPoolId) {
     for (let guard = 0; guard < MAX_ADS_PER_BREAK; guard++) {
       if (clock.breaks.maxItems > 0 && ads.length >= clock.breaks.maxItems) break;
       const remaining = budget - usedMs;
       if (remaining < 10 * SEC) break;
-      const ad = ctx.selector.pickInterstitial(clock.breaks.poolId, start + usedMs, remaining, used);
+      const ad = ctx.selector.pickInterstitial(adPoolId, start + usedMs, remaining, used);
       if (!ad || ad.trimmable) break;
       ads.push(ad);
       used.add(ad.id);
@@ -162,13 +188,22 @@ function fillBreak(
   }
   if (gap > 0) fillers.push({ item: BLACK, ms: gap });
 
-  // Lay them out: ads, filler, ID last.
+  // Lay them out: coming-up-next, bumper in, ads, filler, ID, bumper out.
   let t = start;
+  const bumper = (item: MediaItem | undefined, reason: string) => {
+    if (!item) return;
+    entries.push({ id: nextId(), start: t, end: t + item.durationMs, item, role: 'bumper', inMs: 0, outMs: item.durationMs, blockId, breakIndex: brk.index, reason });
+    ctx.selector.markPlayed(item, t);
+    t += item.durationMs;
+  };
+  bumper(nextUp, 'Bumper after the program ended');
+  bumper(bumperIn, 'Bumper into the break');
+  const adReason = adPoolId !== clock.breaks.poolId ? `Commercial from "${ctx.selector.pool(adPoolId)?.name ?? adPoolId}" (override for this show)` : `Commercial from pool "${ctx.selector.pool(adPoolId)?.name ?? adPoolId}"`;
   for (const ad of ads) {
     entries.push({
       id: nextId(), start: t, end: t + ad.durationMs, item: ad, role: 'commercial',
       inMs: 0, outMs: ad.durationMs, blockId, breakIndex: brk.index,
-      reason: `Commercial from pool "${ctx.selector.pool(clock.breaks.poolId)?.name ?? clock.breaks.poolId}"`,
+      reason: adReason,
     });
     ctx.selector.markPlayed(ad, t);
     t += ad.durationMs;
@@ -193,6 +228,7 @@ function fillBreak(
     ctx.selector.markPlayed(idItem, t);
     t += idMs;
   }
+  bumper(bumperOut, 'Bumper out of the break');
 
   return { index: brk.index, kind: brk.kind, start, end, targetMs, nearBoundary, entries };
 }
@@ -221,7 +257,7 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
   if (programs.length === 0) {
     // Nothing fits (empty pool, or a fixed show is too close): pad until the next stop so the channel keeps moving.
     const end = room != null && room > 0 ? hardStop! : start + Math.max(clock.pad.toMinutes, 30) * MIN;
-    const brk = fillBreak(ctx, clock, blockId, { index: 0, kind: 'post' }, start, end - start, nextId);
+    const brk = fillBreak(ctx, clock, blockId, { index: 0, kind: 'post', afterProgram: false }, start, end - start, nextId);
     return { id: blockId, clockId: clock.id, start, end, programs: [], breaks: [brk], entries: brk.entries, contentMs: 0, breakBudgetMs: end - start };
   }
 
@@ -286,7 +322,7 @@ export function buildBlock(ctx: Ctx, clock: Clock, start: number, blockIndex: nu
     const isLast = i === segments.length - 1;
     const brk = fillBreak(
       ctx, clock, blockId,
-      { index: breakIdx, kind: isLast ? 'post' : 'mid' },
+      { index: breakIdx, kind: isLast ? 'post' : 'mid', afterProgram: seg.partIndex === seg.partCount - 1, showId: seg.program.showId },
       t, targets[breakIdx]!, nextId,
     );
     breakIdx++;
