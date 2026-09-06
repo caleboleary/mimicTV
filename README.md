@@ -8,7 +8,7 @@ A scheduler and UI for [ErsatzTV Next](https://github.com/ErsatzTV/next). Ersatz
 
 <p align="center"><img src="docs/images/screenshot.png" alt="The Guide: every channel for the day side by side, with the live marker and a day navigator underneath" width="900"></p>
 
-- **Library**: what you have. Shows, folders, and shared collections, and where the ad breaks fall inside each episode.
+- **Library**: what you have. Shows, folders, and shared collections.
 - **Channels**: what you build. Shows, a format, and what fills the breaks, with the day's preview alongside as you edit.
 - **Guide**: what's on. Every channel for the day side by side, a live marker, and a preview of the stream.
 
@@ -26,9 +26,11 @@ From source: Node 22+ and ffmpeg on PATH, then `npm install && npm run dev` (app
 
 The Help page in the app walks through the rest: formats, breaks, time bands, fixed shows, mirrors, and what to do when something looks off.
 
-## Media on another machine
+## Advanced tools
 
-If mimicTV can't see the media itself, run the probe on the box that has it (needs `ffprobe`) and send the result to the service:
+**Break points.** Ad breaks inside an episode need a point where the show fades out. Chapters that came with a file are usually scene marks, not breaks, so mimicTV can find them itself: open a show's Breaks page, press Analyze, and it watches each episode for the fades to black around commercials and lines them up across the season. Check the picks, nudge any it got wrong, and save. Your video files are never written to. Details in [docs/breaks.md](docs/breaks.md).
+
+**Media on another machine.** If mimicTV can't see the media itself, run the probe on the box that has it (needs `ffprobe`) and send the result to the service:
 
 ```sh
 ./scripts/probe-library.sh -u http://<mimictv-host>:8787/imports/upload /path/to/media/TV /path/to/media/Commercials
