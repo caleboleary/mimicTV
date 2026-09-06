@@ -22,3 +22,13 @@ describe('hidden folders', () => {
     expect(visibleLibrary(library, [])).toBe(library);
   });
 });
+
+describe('fmtDuration', () => {
+  it('switches to days past 24 hours', async () => {
+    const { fmtDuration, HOUR, MIN, DAY } = await import('../src/index');
+    expect(fmtDuration(22 * MIN + 5000)).toBe('22:05');
+    expect(fmtDuration(3 * HOUR + 4 * MIN + 9000)).toBe('3:04:09');
+    expect(fmtDuration(DAY)).toBe('1d 0h');
+    expect(fmtDuration(3 * DAY + 14 * HOUR + 59 * MIN)).toBe('3d 14h');
+  });
+});

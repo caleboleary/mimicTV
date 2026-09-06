@@ -39,6 +39,8 @@ export function fmtDuration(ms: number): string {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
+  // Library-scale totals read as days; nobody needs the seconds of a 3-day runtime.
+  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
