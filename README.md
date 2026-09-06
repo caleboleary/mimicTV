@@ -2,9 +2,11 @@
 
 # mimicTV
 
-> **Early.** It plays real channels through a real ErsatzTV Next, but it is young: expect rough edges and breaking changes to the saved state between versions.
+> **Early days.** It can output working playouts to ErsatzTV Next, but may have bugs or breaking changes in future.
 
-A scheduler and UI for [ErsatzTV Next](https://github.com/ErsatzTV/next). Next transcodes and streams; mimicTV decides what plays when, and makes setting that up pleasant: pick shows, choose a format, watch the day re-flow, and it's on the air.
+A scheduler and UI for [ErsatzTV Next](https://github.com/ErsatzTV/next). ErsatzTV Next is a backend transcoder and streamer only, so mimicTV is an attempt at a frontend that is somewhat easy to work inside, while allowing for fine control if desired.
+
+<p align="center"><img src="docs/images/screenshot.png" alt="The Guide: every channel for the day side by side, with the live marker and a day navigator underneath" width="900"></p>
 
 - **Channels** are built on one screen: shows, a format (half-hour, hour drama, movies, back to back…), and what fills the breaks, with the day's preview alongside.
 - **Break points** inside episodes are found by watching the video for the fades to black around commercials, checked per season, and saved without ever touching your files.
