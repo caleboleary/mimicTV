@@ -5,7 +5,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { poolItems, rngFor, type MediaItem, type PlayoutItem } from '@mimictv/core';
+import { poolItems, rngFor, visibleLibrary, type MediaItem, type PlayoutItem } from '@mimictv/core';
 import { store, files, IMPORTS, DATA, type Settings, type RulesSnapshot, type LibraryFile } from './store';
 import { runScan, scanStatus } from './scan';
 import { publishNow, lastPublish } from './publish';
@@ -30,7 +30,7 @@ function body(req: http.IncomingMessage): Promise<Buffer> {
 // ---- rules / library / settings
 route('GET', '/api/rules', (_r, res) => json(res, store.rules() ?? {}));
 /** Only these parts of a rules snapshot change the schedule; the preview date or selection do not. */
-const scheduleRules = (r: RulesSnapshot | undefined) => JSON.stringify(r ? [r.pools, r.clocks, r.channels] : null);
+const scheduleRules = (r: RulesSnapshot | undefined) => JSON.stringify(r ? [r.pools, r.clocks, r.channels, r.hiddenFolders ?? []] : null);
 route('PUT', '/api/rules', async (req, res) => {
   const next = JSON.parse((await body(req)).toString()) as RulesSnapshot;
   const changed = scheduleRules(store.rules()) !== scheduleRules(next);
@@ -125,8 +125,9 @@ route('GET', '/api/published', (_r, res) => {
 // ---- live breaks: Next asks for the next item while inside a dynamic placeholder
 const livePlayed: Record<string, number> = {};
 route('GET', '/dynamic/:channelId', (req, res, _p, url) => {
-  const lib = store.library()?.library; const rules = store.rules();
-  if (!lib || !rules) { res.writeHead(404); res.end(); return; }
+  const full = store.library()?.library; const rules = store.rules();
+  if (!full || !rules) { res.writeHead(404); res.end(); return; }
+  const lib = visibleLibrary(full, rules.hiddenFolders ?? []);
   const now = Date.parse(String(req.headers['x-etv-now'] ?? '')) || Date.now();
   const until = Date.parse(String(req.headers['x-etv-until'] ?? '')) || now + 60000;
   const room = until - now;

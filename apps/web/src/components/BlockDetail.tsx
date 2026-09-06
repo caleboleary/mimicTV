@@ -1,5 +1,5 @@
 import { fmtClockSec, fmtDuration, type Clock, type ScheduledBlock, type TimelineEntry } from '@mimictv/core';
-import { useStore } from '../store/store';
+import { useStore , useLibrary } from '../store/store';
 import { entryColor } from '../colors';
 
 const epCode = (e: TimelineEntry) => (e.item.season != null ? `S${String(e.item.season).padStart(2, '0')}E${String(e.item.episode).padStart(2, '0')}` : undefined);
@@ -9,7 +9,7 @@ const epCode = (e: TimelineEntry) => (e.item.season != null ? `S${String(e.item.
  * group of one-line rows, so a half hour with a dozen ads still reads as "a show with breaks".
  */
 export default function BlockDetail({ block, clock }: { block: ScheduledBlock; clock?: Clock }) {
-  const shows = useStore((s) => s.library.shows);
+  const shows = useLibrary().shows;
   const showTitle = (id?: string) => shows.find((s) => s.id === id)?.title;
   const programs = block.entries.filter((e) => e.role === 'program');
   const breakLens = block.breaks.map((b) => b.end - b.start);

@@ -2,6 +2,7 @@ export * from './types';
 export * from './time';
 export { rngFor, hashString } from './rng';
 export { poolItems, poolShows, itemMatches, termsMatch, libraryFolders } from './engine/pools';
+export { hiddenBy, visibleLibrary, showFolder } from './library/hidden';
 export { BLACK } from './engine/select';
 export { simulate, simulateAll, shiftSimulation, freshCursors, clockForTime, daypartForTime, bandActiveOn, hardStopAfter, blocksInWindow, entriesInWindow, candidateCuts, adPoolFor } from './engine/schedule';
 export { toPlayout, playoutFileName, PLAYOUT_SCHEMA_VERSION } from './emit/playout';

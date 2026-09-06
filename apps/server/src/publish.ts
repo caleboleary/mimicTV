@@ -1,7 +1,7 @@
 /** Write Next's files from a publish plan: lineup.json, channel.json, playout files, XMLTV. */
 import fs from 'node:fs';
 import path from 'node:path';
-import { planPublish, mergePlayout, mergeTimeline, blocksFromPlayout, compactBlocks, DAY, type Channel, type Library, type PlayoutFile, type Ruleset, type ScheduledBlock } from '@mimictv/core';
+import { planPublish, mergePlayout, mergeTimeline, blocksFromPlayout, compactBlocks, visibleLibrary, DAY, type Channel, type Library, type PlayoutFile, type Ruleset, type ScheduledBlock } from '@mimictv/core';
 import { store, writeJsonAtomic, files as dataFiles, readJson, type Settings } from './store';
 
 export interface PublishResult { at: number; channels: { id: string; name: string; files: string[]; boundary: number }[]; outputDir: string; error?: string }
@@ -51,7 +51,8 @@ export function publishNow(now = Date.now()): PublishResult {
   if (!out) return { at: now, channels: [], outputDir: '', error: 'No output folder set' };
   if (!rules || !lib) return { at: now, channels: [], outputDir: out, error: 'No rules or library saved yet' };
 
-  const ruleset: Ruleset = { library: lib.library, pools: rules.pools, clocks: rules.clocks };
+  // Hidden folders never schedule; recovery below still reads the full library so old playouts resolve.
+  const ruleset: Ruleset = { library: visibleLibrary(lib.library, rules.hiddenFolders ?? []), pools: rules.pools, clocks: rules.clocks };
   const channels: Channel[] = [...rules.channels].sort((a, b) => (Number(a.number) || 0) - (Number(b.number) || 0));
   const checkpoints = store.checkpoints();
   const pathMap = pathMapper(settings.next.pathMap);

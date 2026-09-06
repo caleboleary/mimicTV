@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { poolItems, poolShows, fmtClock, type Channel, type Clock, type MediaKind, type Pool, type ScheduledBlock } from '@mimictv/core';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-import { useStore } from '../store/store';
+import { useStore , useLibrary } from '../store/store';
 import { useRuleset, useSim } from '../store/useSim';
 import { exportDay } from '../export';
 import Card, { Disclosure } from '../components/Card';
@@ -85,7 +85,7 @@ function PoolSlot({ role, poolId, channelId, onPick }: { role: Role; poolId: str
   const pools = useStore((s) => s.pools);
   const clocks = useStore((s) => s.clocks);
   const channels = useStore((s) => s.channels);
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const updatePool = useStore((s) => s.updatePool);
   const promotePool = useStore((s) => s.promotePool);
   const detachPool = useStore((s) => s.detachPool);
@@ -150,7 +150,7 @@ export default function ChannelEditorPage() {
   const channels = useStore((s) => s.channels);
   const clocks = useStore((s) => s.clocks);
   const pools = useStore((s) => s.pools);
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const previewDate = useStore((s) => s.previewDate);
   const updateChannel = useStore((s) => s.updateChannel);
   const updateClock = useStore((s) => s.updateClock);

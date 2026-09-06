@@ -1,10 +1,10 @@
 import { useDeferredValue, useMemo } from 'react';
 import { simulateAll, planPublish, mergeTimeline, expandBlocks, DAY, MIN, type Channel, type Ruleset, type Simulation } from '@mimictv/core';
-import { useStore, dateStart } from './store';
+import { useStore, dateStart , useLibrary } from './store';
 import { useNow } from './useNow';
 
 export function useRuleset(): Ruleset {
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const pools = useStore((s) => s.pools);
   const clocks = useStore((s) => s.clocks);
   return useMemo(() => ({ library, pools, clocks }), [library, pools, clocks]);

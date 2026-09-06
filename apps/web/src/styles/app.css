@@ -316,3 +316,8 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 
 .strip-rows .track { cursor: grab; touch-action: none; }
 .strip-rows:active .track { cursor: grabbing; }
+
+/* Library: hidden shows and folders sink to the bottom, greyed */
+tr.hidden-row td { opacity: 0.45; }
+tr.hidden-row td:last-child { opacity: 1; }
+tr.hidden-row .sub { opacity: 0.8; }

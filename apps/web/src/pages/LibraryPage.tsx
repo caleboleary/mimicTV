@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  parseProbeJsonl, importProbeLibrary, starterRules, fmtDuration, poolItems,
+  parseProbeJsonl, importProbeLibrary, starterRules, fmtDuration, poolItems, libraryFolders, hiddenBy, showFolder,
   type MediaKind, type ProbeHeader, type ProbeRecord, type Pool,
 } from '@mimictv/core';
-import { useStore } from '../store/store';
+import { useStore, useLibrary } from '../store/store';
 import PoolEditor, { MODES } from '../components/PoolEditor';
 
 const KINDS: MediaKind[] = ['episode', 'movie', 'commercial', 'network-id', 'bumper', 'filler'];
-type Tab = 'overview' | 'shows' | 'collections' | 'import';
+type Tab = 'overview' | 'shows' | 'folders' | 'collections' | 'import';
 
 async function readBlobText(blob: Blob, name: string): Promise<string> {
   if (name.endsWith('.gz')) return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
@@ -20,7 +20,7 @@ export default function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab) || 'overview';
   const setTab = (t: Tab) => setParams(t === 'overview' ? {} : { tab: t });
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const source = useStore((s) => s.librarySource);
   const eps = library.items.filter((i) => i.kind === 'episode');
   const withBreaks = eps.filter((i) => i.breakPoints.length > 0).length;
@@ -29,10 +29,11 @@ export default function LibraryPage() {
     <div>
       <div className="toolbar"><h1>Library</h1><div className="grow" /><span className="muted small">{source || 'no library yet'}</span></div>
       <div className="subtabs">
-        {(['overview', 'shows', 'collections', 'import'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0]!.toUpperCase() + t.slice(1)}</button>)}
+        {(['overview', 'shows', 'folders', 'collections', 'import'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0]!.toUpperCase() + t.slice(1)}</button>)}
       </div>
       {tab === 'overview' && <Overview withBreaks={withBreaks} eps={eps.length} />}
       {tab === 'shows' && <Shows />}
+      {tab === 'folders' && <Folders />}
       {tab === 'collections' && <Collections />}
       {tab === 'import' && <Import />}
     </div>
@@ -40,7 +41,7 @@ export default function LibraryPage() {
 }
 
 function Overview({ withBreaks, eps }: { withBreaks: number; eps: number }) {
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const counts = KINDS.map((k) => [k, library.items.filter((i) => i.kind === k).length] as const);
   return (
     <>
@@ -62,6 +63,9 @@ function Overview({ withBreaks, eps }: { withBreaks: number; eps: number }) {
 
 function Shows() {
   const library = useStore((s) => s.library);
+  const hidden = useStore((s) => s.hiddenFolders);
+  const hideFolder = useStore((s) => s.hideFolder);
+  const unhideFolder = useStore((s) => s.unhideFolder);
   const [q, setQ] = useState('');
   const rows = useMemo(() => {
     const m = new Map<string, { eps: number; ch: number; dur: number; seasons: Set<number> }>();
@@ -70,21 +74,81 @@ function Shows() {
       r.eps++; if (i.breakPoints.length) r.ch++; r.dur += i.durationMs; if (i.season != null) r.seasons.add(i.season); m.set(i.showId, r);
     }
     const ql = q.trim().toLowerCase();
-    return [...library.shows].filter((s) => !ql || s.title.toLowerCase().includes(ql)).sort((a, b) => a.title.localeCompare(b.title)).map((s) => ({ show: s, ...(m.get(s.id) ?? { eps: 0, ch: 0, dur: 0, seasons: new Set<number>() }) }));
-  }, [library, q]);
+    const all = [...library.shows].filter((s) => !ql || s.title.toLowerCase().includes(ql)).sort((a, b) => a.title.localeCompare(b.title)).map((s) => {
+      const folder = showFolder(library, s.id);
+      return { show: s, folder, hiddenByFolder: folder ? hiddenBy(folder, hidden) : undefined, ...(m.get(s.id) ?? { eps: 0, ch: 0, dur: 0, seasons: new Set<number>() }) };
+    });
+    // Hidden shows sink to the bottom, greyed, with the way back next to them.
+    return [...all.filter((r) => !r.hiddenByFolder), ...all.filter((r) => r.hiddenByFolder)];
+  }, [library, hidden, q]);
+  const hiddenCount = rows.filter((r) => r.hiddenByFolder).length;
   return (
     <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
-      <div className="toolbar" style={{ padding: 12, marginBottom: 0 }}><input type="text" placeholder="filter…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 240 }} /><span className="muted small">{rows.length} shows</span></div>
+      <div className="toolbar" style={{ padding: 12, marginBottom: 0 }}>
+        <input type="text" placeholder="filter…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 240 }} />
+        <span className="muted small">{rows.length - hiddenCount} shows{hiddenCount ? ` · ${hiddenCount} hidden` : ''}</span>
+        <div className="grow" />
+        <span className="muted small">Hidden shows stay out of every pool, preview, and publish until you show them again.</span>
+      </div>
       <table>
-        <thead><tr><th>Show</th><th className="mono">Eps</th><th className="mono">Seasons</th><th className="mono">Avg length</th><th>Break points</th></tr></thead>
+        <thead><tr><th>Show</th><th className="mono">Eps</th><th className="mono">Seasons</th><th className="mono">Avg length</th><th>Break points</th><th /></tr></thead>
         <tbody>
-          {rows.map(({ show, eps, ch, dur, seasons }) => (
-            <tr key={show.id}>
-              <td>{show.title}{show.year ? <span className="muted"> ({show.year})</span> : null}</td>
+          {rows.map(({ show, folder, hiddenByFolder, eps, ch, dur, seasons }, i) => (
+            <tr key={show.id} className={hiddenByFolder ? 'hidden-row' : ''} style={hiddenByFolder && i > 0 && !rows[i - 1]!.hiddenByFolder ? { borderTop: '2px solid var(--line)' } : undefined}>
+              <td>{show.title}{show.year ? <span className="muted"> ({show.year})</span> : null}{hiddenByFolder && <span className="sub muted mono">{hiddenByFolder}</span>}</td>
               <td className="mono">{eps}</td>
               <td className="mono">{seasons.size}</td>
               <td className="mono">{eps ? fmtDuration(dur / eps) : '—'}</td>
               <td><span className={`badge ${ch === eps && eps > 0 ? 'ok' : ch === 0 ? 'warn' : ''}`}>{ch}/{eps}</span></td>
+              <td style={{ textAlign: 'right' }}>
+                {hiddenByFolder
+                  ? <button className="btn sm" onClick={() => unhideFolder(hiddenByFolder)}>Show again</button>
+                  : folder && <button className="btn sm" title={`Hide ${folder}`} onClick={() => hideFolder(folder)}>Hide</button>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Every folder the scan found, two levels under the roots, with hide/show. Hidden folders sink to the bottom. */
+function Folders() {
+  const library = useStore((s) => s.library);
+  const hidden = useStore((s) => s.hiddenFolders);
+  const hideFolder = useStore((s) => s.hideFolder);
+  const unhideFolder = useStore((s) => s.unhideFolder);
+  const [q, setQ] = useState('');
+  const rows = useMemo(() => {
+    const kinds = new Map<string, Set<string>>();
+    for (const i of library.items) { const parts = i.path.split(/[\\/]+/); for (let d = 3; d <= 4 && d < parts.length; d++) { const p = parts.slice(0, d).join('/'); kinds.set(p, (kinds.get(p) ?? new Set()).add(i.kind)); } }
+    const ql = q.trim().toLowerCase();
+    const all = libraryFolders(library).filter((f) => f.depth <= 3 && (!ql || f.path.toLowerCase().includes(ql))).map((f) => ({ ...f, kinds: [...(kinds.get(f.path) ?? [])], hiddenByFolder: hiddenBy(f.path, hidden) }));
+    return [...all.filter((r) => !r.hiddenByFolder), ...all.filter((r) => r.hiddenByFolder)];
+  }, [library, hidden, q]);
+  const hiddenCount = rows.filter((r) => r.hiddenByFolder).length;
+  return (
+    <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="toolbar" style={{ padding: 12, marginBottom: 0 }}>
+        <input type="text" placeholder="filter…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 240 }} />
+        <span className="muted small">{rows.length - hiddenCount} folders{hiddenCount ? ` · ${hiddenCount} hidden` : ''}</span>
+        <div className="grow" />
+        <span className="muted small">Hiding a folder hides everything under it. Rescans don't bring it back; "Show again" does.</span>
+      </div>
+      <table>
+        <thead><tr><th>Folder</th><th>Holds</th><th className="mono">Files</th><th /></tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.path} className={r.hiddenByFolder ? 'hidden-row' : ''} style={r.hiddenByFolder && i > 0 && !rows[i - 1]!.hiddenByFolder ? { borderTop: '2px solid var(--line)' } : undefined}>
+              <td className="mono" style={{ paddingLeft: r.depth === 3 ? 28 : undefined }}>{r.path}{r.hiddenByFolder && r.hiddenByFolder !== r.path && <span className="sub muted">via {r.hiddenByFolder}</span>}</td>
+              <td>{r.kinds.map((k) => <span key={k} className="badge" style={{ marginRight: 4 }}>{k}</span>)}</td>
+              <td className="mono">{r.count}</td>
+              <td style={{ textAlign: 'right' }}>
+                {r.hiddenByFolder
+                  ? <button className="btn sm" onClick={() => unhideFolder(r.hiddenByFolder!)}>Show again</button>
+                  : <button className="btn sm" onClick={() => hideFolder(r.path)}>Hide</button>}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -98,7 +162,7 @@ function Collections() {
   const pools = useStore((s) => s.pools);
   const clocks = useStore((s) => s.clocks);
   const channels = useStore((s) => s.channels);
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const updatePool = useStore((s) => s.updatePool);
   const addPool = useStore((s) => s.addPool);
   const removePool = useStore((s) => s.removePool);

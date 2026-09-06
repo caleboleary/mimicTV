@@ -1,8 +1,9 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import {
-  newChannelAnchorMs, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS, MIN, HOUR,
+  newChannelAnchorMs, visibleLibrary, DEFAULT_PROGRAM_MIN_MS, DEFAULT_PROGRAM_MAX_MS, MIN, HOUR,
   type Channel, type Checkpoint, type Clock, type CompactBlock, type Library, type Pool, type MediaKind,
 } from '@mimictv/core';
 
@@ -32,6 +33,8 @@ interface State {
   pools: Pool[];
   clocks: Clock[];
   channels: Channel[];
+  /** Folder paths the rest of the app never sees or schedules. Prefix match. */
+  hiddenFolders: string[];
   selectedChannelId: string;
   previewDate: string;
   /** Undefined until the service has answered; the preview then falls back to simulating from scratch. */
@@ -39,6 +42,8 @@ interface State {
   /** Next as reached from this network (Setup), for the M3U/XMLTV links and the in-app preview. */
   nextUrl: string;
   setNextUrl(url: string): void;
+  hideFolder(path: string): void;
+  unhideFolder(path: string): void;
   selectChannel(id: string): void;
   setPreviewDate(iso: string): void;
   updateClock(id: string, patch: (c: Clock) => Clock): void;
@@ -76,6 +81,7 @@ function initial() {
     pools: [] as Pool[],
     clocks: [] as Clock[],
     channels: [] as Channel[],
+    hiddenFolders: [] as string[],
     selectedChannelId: '',
     previewDate: isoDate(Date.now()),
     nextUrl: '',
@@ -97,6 +103,8 @@ export const useStore = create<State>()(
       selectChannel: (id) => set({ selectedChannelId: id }),
       setPreviewDate: (iso) => set({ previewDate: iso }),
       setNextUrl: (nextUrl) => set({ nextUrl }),
+      hideFolder: (path) => set((s) => ({ hiddenFolders: s.hiddenFolders.includes(path) ? s.hiddenFolders : [...s.hiddenFolders, path] })),
+      unhideFolder: (path) => set((s) => ({ hiddenFolders: s.hiddenFolders.filter((h) => h !== path) })),
       updateClock: (id, patch) => set((s) => ({ clocks: s.clocks.map((c) => (c.id === id ? patch(c) : c)) })),
       addClock: (clock) => set((s) => ({ clocks: [...s.clocks, clock] })),
       removeClock: (id) => set((s) => ({ clocks: s.clocks.filter((c) => c.id !== id) })),
@@ -257,7 +265,7 @@ export const useStore = create<State>()(
       name: 'mimictv-poc',
       version: 1,
       partialize: (s) => ({
-        pools: s.pools, clocks: s.clocks, channels: s.channels, librarySource: s.librarySource,
+        pools: s.pools, clocks: s.clocks, channels: s.channels, hiddenFolders: s.hiddenFolders, librarySource: s.librarySource,
         selectedChannelId: s.selectedChannelId, previewDate: s.previewDate,
       }),
     },
@@ -301,7 +309,14 @@ function applyDefaultProgramRange() {
   useStore.setState({ pools: s.pools.map((p) => (needs(p) ? { ...p, filter: { ...p.filter, minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS } } : p)) });
 }
 
-type RulesSnapshot = Pick<State, 'pools' | 'clocks' | 'channels' | 'selectedChannelId' | 'previewDate' | 'librarySource'>;
+type RulesSnapshot = Pick<State, 'pools' | 'clocks' | 'channels' | 'hiddenFolders' | 'selectedChannelId' | 'previewDate' | 'librarySource'>;
+
+/** The library as the rest of the app should see it: without hidden folders. */
+export function useLibrary(): Library {
+  const library = useStore((s) => s.library);
+  const hidden = useStore((s) => s.hiddenFolders);
+  return useMemo(() => visibleLibrary(library, hidden), [library, hidden]);
+}
 
 async function getJson<T>(url: string): Promise<T | undefined> {
   try {
@@ -331,7 +346,7 @@ export async function hydrateLibrary(): Promise<void> {
     ]);
     serverRulesSeen = !!serverRules?.pools;
     serverLibSeen = !!serverLib?.library;
-    if (serverRules?.pools) useStore.setState(serverRules);
+    if (serverRules?.pools) useStore.setState({ ...serverRules, hiddenFolders: serverRules.hiddenFolders ?? [] });
     if (published?.checkpoints) useStore.setState({ published });
     if (settings?.next?.publicUrl) useStore.setState({ nextUrl: settings.next.publicUrl });
     const lib = serverLib?.library ? serverLib : saved?.library ? saved : undefined;
@@ -347,7 +362,7 @@ export async function hydrateLibrary(): Promise<void> {
   applyDefaultProgramRange();
   const s0 = useStore.getState();
   if (!serverRulesSeen) {
-    const rules: RulesSnapshot = { pools: s0.pools, clocks: s0.clocks, channels: s0.channels, selectedChannelId: s0.selectedChannelId, previewDate: s0.previewDate, librarySource: s0.librarySource };
+    const rules: RulesSnapshot = { pools: s0.pools, clocks: s0.clocks, channels: s0.channels, hiddenFolders: s0.hiddenFolders, selectedChannelId: s0.selectedChannelId, previewDate: s0.previewDate, librarySource: s0.librarySource };
     fetch('/api/rules', { method: 'PUT', body: JSON.stringify(rules), headers: { 'Content-Type': 'application/json' } }).catch(() => {});
   }
   if (!serverLibSeen && s0.library.items.length > 0) {
@@ -367,7 +382,7 @@ export async function hydrateLibrary(): Promise<void> {
   let lastLib: Library | undefined = useStore.getState().library;
   useStore.subscribe((s) => {
     if (syncing) return;
-    const rules: RulesSnapshot = { pools: s.pools, clocks: s.clocks, channels: s.channels, selectedChannelId: s.selectedChannelId, previewDate: s.previewDate, librarySource: s.librarySource };
+    const rules: RulesSnapshot = { pools: s.pools, clocks: s.clocks, channels: s.channels, hiddenFolders: s.hiddenFolders, selectedChannelId: s.selectedChannelId, previewDate: s.previewDate, librarySource: s.librarySource };
     const json = JSON.stringify(rules);
     const libChanged = s.library !== lastLib;
     if (json === lastRules && !libChanged) return;

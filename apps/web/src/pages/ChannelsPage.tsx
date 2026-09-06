@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { blocksInWindow, poolItems, DAY } from '@mimictv/core';
-import { useStore, dateStart } from '../store/store';
+import { useStore, dateStart , useLibrary } from '../store/store';
 import { useSims } from '../store/useSim';
 import DayStrip from '../components/DayStrip';
 
@@ -10,7 +10,7 @@ export default function ChannelsPage() {
   const channels = useStore((s) => s.channels);
   const clocks = useStore((s) => s.clocks);
   const pools = useStore((s) => s.pools);
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const previewDate = useStore((s) => s.previewDate);
   const createChannel = useStore((s) => s.createChannel);
   const duplicateChannel = useStore((s) => s.duplicateChannel);

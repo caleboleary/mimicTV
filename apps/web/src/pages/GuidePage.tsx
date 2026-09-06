@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { blocksInWindow, fmtClock, fmtDuration, HOUR, MIN, DAY, type Channel, type ScheduledBlock, type Simulation, type TimelineEntry } from '@mimictv/core';
-import { useStore, dateStart, isoDate } from '../store/store';
+import { useStore, dateStart, isoDate , useLibrary } from '../store/store';
 import { useSims } from '../store/useSim';
 import { useNow } from '../store/useNow';
 import { DateBar } from '../components/DayPreview';
@@ -41,7 +41,7 @@ export default function GuidePage() {
   const nav = useNavigate();
   const channels = useStore((s) => s.channels);
   const clocks = useStore((s) => s.clocks);
-  const library = useStore((s) => s.library);
+  const library = useLibrary();
   const previewDate = useStore((s) => s.previewDate);
   const setPreviewDate = useStore((s) => s.setPreviewDate);
   const nextUrl = useStore((s) => s.nextUrl);
