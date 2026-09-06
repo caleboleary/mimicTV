@@ -78,7 +78,7 @@ function Shows() {
       const folder = showFolder(library, s.id);
       const eps = library.items.filter((i) => i.showId === s.id && i.kind === 'episode');
       const first = eps[0];
-      const breaks = !first ? '' : eps.some((i) => i.breakSource === 'blackdetect' || i.breakSource === 'manual' || i.noBreaks) ? 'decided' : eps.some((i) => i.chaptersOurs) ? 'old tool' : eps.some((i) => i.breakSource === 'chapters') ? 'release chapters' : 'none';
+      const breaks = !first ? '' : eps.some((i) => i.breakSource === 'blackdetect' || i.breakSource === 'manual' || i.noBreaks) ? 'decided' : eps.some((i) => i.chaptersOurs) ? 'old tool' : eps.some((i) => i.breakSource === 'chapters') ? 'file chapters' : 'none';
       return { show: s, folder, breaksFolder: first ? first.path.split('/').slice(0, 4).join('/') : undefined, breaks, hiddenByFolder: folder ? hiddenBy(folder, hidden) : undefined, ...(m.get(s.id) ?? { eps: 0, ch: 0, dur: 0, seasons: new Set<number>() }) };
     });
     // Hidden shows sink to the bottom, greyed, with the way back next to them.
@@ -103,7 +103,7 @@ function Shows() {
               <td className="mono">{seasons.size}</td>
               <td className="mono">{eps ? fmtDuration(dur / eps) : '—'}</td>
               <td><span className={`badge ${ch === eps && eps > 0 ? 'ok' : ch === 0 ? 'warn' : ''}`}>{ch}/{eps}</span></td>
-              <td>{breaksFolder && <Link className={`badge ${breaks === 'decided' ? 'ok' : breaks === 'release chapters' ? 'warn' : ''}`} to={`/library/breaks?folder=${encodeURIComponent(breaksFolder)}`} title="Find, check, and lock in this show's ad breaks">{breaks} →</Link>}</td>
+              <td>{breaksFolder && <Link className={`badge ${breaks === 'decided' ? 'ok' : breaks === 'file chapters' ? 'warn' : ''}`} to={`/library/breaks?folder=${encodeURIComponent(breaksFolder)}`} title="Find, check, and lock in this show's ad breaks">{breaks} →</Link>}</td>
               <td style={{ textAlign: 'right' }}>
                 {hiddenByFolder
                   ? <button className="btn sm" onClick={() => unhideFolder(hiddenByFolder)}>Show again</button>
