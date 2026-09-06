@@ -8,10 +8,9 @@ A scheduler and UI for [ErsatzTV Next](https://github.com/ErsatzTV/next). Ersatz
 
 <p align="center"><img src="docs/images/screenshot.png" alt="The Guide: every channel for the day side by side, with the live marker and a day navigator underneath" width="900"></p>
 
-- **Channels** are built on one screen: shows, a format (half-hour, hour drama, movies, back to back…), and what fills the breaks, with the day's preview alongside.
-- **Break points** inside episodes are found by watching the video for the fades to black around commercials, checked per season, and saved without ever touching your files.
-- **The Guide** shows every channel as published, with a live marker and an in-app preview of the stream.
-- **Publishing** writes ErsatzTV Next's files a few days ahead and keeps them topped up. Editing a channel changes its future from the next break, never what's playing.
+- **Library**: what you have. Shows, folders, and shared collections, and where the ad breaks fall inside each episode.
+- **Channels**: what you build. Shows, a format, and what fills the breaks, with the day's preview alongside as you edit.
+- **Guide**: what's on. Every channel for the day side by side, a live marker, and a preview of the stream.
 
 ## Install
 
