@@ -356,3 +356,15 @@ tr.hidden-row .sub { opacity: 0.8; }
 .brk-bar .tick.on.manual { background: var(--live); box-shadow: 0 0 6px rgba(255, 90, 90, 0.7); }
 
 .track-hint { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+/* Help */
+.docs { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
+.docs-toc { position: sticky; top: 0; display: grid; gap: 2px; }
+.docs-toc a { padding: 6px 10px; border-radius: 6px; color: var(--muted); font-size: 13px; }
+.docs-toc a.on { background: var(--panel-2); color: var(--text); }
+.docs-body { max-width: 760px; }
+.docs-section { scroll-margin-top: 16px; }
+.docs-section h2 { margin: 0 0 8px; }
+.docs-section p { margin: 0 0 10px; line-height: 1.55; font-size: 13.5px; }
+.docs-section p:last-child { margin-bottom: 0; }
+.docs-section b { color: var(--accent); font-weight: 600; }
