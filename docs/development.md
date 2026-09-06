@@ -17,7 +17,7 @@ State lives in `data/` (ignored by git); set `MIMICTV_DATA` to keep it elsewhere
 - `packages/core`: the domain model, the deterministic scheduling engine, break-point planning, and the emitter for ErsatzTV Next's playout JSON and XMLTV. Pure; no I/O. Nothing outside `emit/` knows the playout format.
 - `apps/server`: the service. Plain `node:http`. Scans with ffprobe, measures breaks with ffmpeg, keeps JSON state, publishes on a schedule, resolves live breaks, serves the built app.
 - `apps/web`: React + Vite. Guide, Channels, Library, Setup, Help.
-- `docs/`: [domain model](domain-model.md), [ErsatzTV Next schema notes](next-schema.md), [break points](breaks.md), [Docker install](docker.md).
+- `docs/`: [recipes](recipes.md), [domain model](domain-model.md), [ErsatzTV Next schema notes](next-schema.md), [break points](breaks.md), [Docker install](docker.md).
 
 ## Developing on the box that has the media
 
