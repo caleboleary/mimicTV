@@ -177,7 +177,7 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 
 /* Guide */
 .guide { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
-.guide-grid { overflow-x: auto; }
+.guide-grid { overflow: hidden; }
 .guide-row { display: grid; grid-template-columns: 170px 1fr; align-items: stretch; gap: 8px; margin-bottom: 4px; }
 .guide-row .chan { display: flex; align-items: center; gap: 10px; padding: 0 8px; background: var(--panel-2); border-radius: 6px; cursor: pointer; }
 .guide-row .chan b { font-family: var(--mono); color: var(--accent); font-size: 16px; }
@@ -273,12 +273,6 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 .player-bar .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--live); box-shadow: 0 0 6px var(--live); }
 .player-body:fullscreen video { height: 100%; object-fit: contain; }
 
-/* Guide: the whole day in a sideways-scrolling strip; channel column stays put */
-.guide-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
-.guide-inner { position: relative; }
-.guide-scroll .sticky { position: sticky; left: 0; z-index: 6; }
-.guide-row .chan.sticky { background: var(--panel-2); box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.6); }
-.ruler .sticky { background: var(--panel); }
 .ruler .ticks span.half { opacity: 0.45; }
 .ruler .ticks span::before { content: ''; position: absolute; left: 50%; top: 14px; height: 4px; border-left: 1px solid var(--line); }
 
@@ -304,3 +298,18 @@ pre.code { background: var(--bg); border: 1px solid var(--line); border-radius: 
 .ad .sw { width: 8px; height: 8px; border-radius: 2px; }
 .ad .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ad .n em { font-style: normal; color: var(--accent); opacity: 0.8; }
+
+/* Day navigator under the guide: miniature lanes, a draggable view box with zoom handles */
+.navigator { display: grid; grid-template-columns: 170px 1fr; gap: 8px; margin-top: 8px; }
+.nav-strip { position: relative; padding: 4px 0 16px; background: var(--panel-2); border-radius: 6px; cursor: pointer; user-select: none; touch-action: none; }
+.nav-lane { position: relative; margin: 1px 0; background: rgba(255, 255, 255, 0.04); }
+.nav-lane i { position: absolute; top: 0; bottom: 0; }
+.nav-strip .nowline { top: 0; bottom: 14px; width: 1px; box-shadow: none; }
+.nav-strip > b { position: absolute; bottom: 1px; transform: translateX(-50%); font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--muted); pointer-events: none; }
+.nav-strip > b:first-of-type { transform: none; }
+.view-box { position: absolute; top: 0; bottom: 12px; border: 1px solid var(--accent); border-radius: 3px; background: rgba(242, 181, 68, 0.12); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); cursor: grab; z-index: 4; }
+.view-box:active { cursor: grabbing; }
+.view-box .handle { position: absolute; top: -1px; bottom: -1px; width: 8px; cursor: ew-resize; background: var(--accent); border-radius: 3px; }
+.view-box .handle::after { content: ''; position: absolute; top: 50%; left: 50%; width: 1px; height: 8px; transform: translate(-50%, -50%); background: var(--accent-ink); opacity: 0.7; }
+.view-box .handle.l { left: -4px; }
+.view-box .handle.r { right: -4px; }
