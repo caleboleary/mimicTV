@@ -93,12 +93,14 @@ export default function GuidePage() {
     if (e.button !== 0 || (e.target as HTMLElement).closest('.chan')) return;
     suppressClick.current = false;
     stripDrag.current = { x0: e.clientX, start0: view.start, moved: false };
-    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onStripMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = stripDrag.current; if (!d) return;
     const dx = e.clientX - d.x0;
     if (!d.moved && Math.abs(dx) < 4) return;
+    // Capture only once this is a real drag. Capturing on pointerdown would retarget the pointerup to the
+    // strip, so the click would fire on the strip instead of the block and nothing could be selected.
+    if (!d.moved) e.currentTarget.setPointerCapture(e.pointerId);
     d.moved = true;
     const trackW = e.currentTarget.querySelector('.track')?.clientWidth ?? e.currentTarget.clientWidth;
     setView((v) => ({ ...v, start: d.start0 - (dx / trackW) * v.len }));
