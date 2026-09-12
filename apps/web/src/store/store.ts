@@ -96,6 +96,9 @@ function newInterstitialPool(kind: MediaKind, ownerChannelId: string | undefined
   return { ...base, name: `${channelName} filler`, selection: 'random', noRepeatMs: 30 * MIN };
 }
 
+/** What survives a reload. The guide's date deliberately does not: a reload shows today (issue #1). */
+type PersistedRules = Pick<State, 'pools' | 'clocks' | 'channels' | 'hiddenFolders' | 'librarySource' | 'selectedChannelId'>;
+
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
@@ -263,11 +266,16 @@ export const useStore = create<State>()(
     }),
     {
       name: 'mimictv',
-      version: 1,
+      version: 2,
+      // previewDate is session-only: a reload shows today centred on now, as if Now was pressed (issue #1).
       partialize: (s) => ({
         pools: s.pools, clocks: s.clocks, channels: s.channels, hiddenFolders: s.hiddenFolders, librarySource: s.librarySource,
-        selectedChannelId: s.selectedChannelId, previewDate: s.previewDate,
+        selectedChannelId: s.selectedChannelId,
       }),
+      migrate: (state) => {
+        const { previewDate: _dropped, ...rest } = (state ?? {}) as Partial<PersistedRules> & { previewDate?: string };
+        return rest as PersistedRules; // a v1 payload always carried the rest
+      },
     },
   ),
 );
@@ -309,7 +317,7 @@ function applyDefaultProgramRange() {
   useStore.setState({ pools: s.pools.map((p) => (needs(p) ? { ...p, filter: { ...p.filter, minDurationMs: DEFAULT_PROGRAM_MIN_MS, maxDurationMs: DEFAULT_PROGRAM_MAX_MS } } : p)) });
 }
 
-type RulesSnapshot = Pick<State, 'pools' | 'clocks' | 'channels' | 'hiddenFolders' | 'selectedChannelId' | 'previewDate' | 'librarySource'>;
+type RulesSnapshot = Pick<State, 'pools' | 'clocks' | 'channels' | 'hiddenFolders' | 'selectedChannelId' | 'librarySource'>;
 
 /** The library as the rest of the app should see it: without hidden folders. */
 export function useLibrary(): Library {
@@ -346,7 +354,10 @@ export async function hydrateLibrary(): Promise<void> {
     ]);
     serverRulesSeen = !!serverRules?.pools;
     serverLibSeen = !!serverLib?.library;
-    if (serverRules?.pools) useStore.setState({ ...serverRules, hiddenFolders: serverRules.hiddenFolders ?? [] });
+    if (serverRules?.pools) {
+      delete (serverRules as RulesSnapshot & { previewDate?: string }).previewDate; // older rules.json saved it; the guide starts on today instead (issue #1)
+      useStore.setState({ ...serverRules, hiddenFolders: serverRules.hiddenFolders ?? [] });
+    }
     if (published?.checkpoints) useStore.setState({ published });
     if (settings?.next?.publicUrl) useStore.setState({ nextUrl: settings.next.publicUrl });
     const lib = serverLib?.library ? serverLib : saved?.library ? saved : undefined;
@@ -362,7 +373,7 @@ export async function hydrateLibrary(): Promise<void> {
   applyDefaultProgramRange();
   const s0 = useStore.getState();
   if (!serverRulesSeen) {
-    const rules: RulesSnapshot = { pools: s0.pools, clocks: s0.clocks, channels: s0.channels, hiddenFolders: s0.hiddenFolders, selectedChannelId: s0.selectedChannelId, previewDate: s0.previewDate, librarySource: s0.librarySource };
+    const rules: RulesSnapshot = { pools: s0.pools, clocks: s0.clocks, channels: s0.channels, hiddenFolders: s0.hiddenFolders, selectedChannelId: s0.selectedChannelId, librarySource: s0.librarySource };
     fetch('/api/rules', { method: 'PUT', body: JSON.stringify(rules), headers: { 'Content-Type': 'application/json' } }).catch(() => {});
   }
   if (!serverLibSeen && s0.library.items.length > 0) {
@@ -382,7 +393,7 @@ export async function hydrateLibrary(): Promise<void> {
   let lastLib: Library | undefined = useStore.getState().library;
   useStore.subscribe((s) => {
     if (syncing) return;
-    const rules: RulesSnapshot = { pools: s.pools, clocks: s.clocks, channels: s.channels, hiddenFolders: s.hiddenFolders, selectedChannelId: s.selectedChannelId, previewDate: s.previewDate, librarySource: s.librarySource };
+    const rules: RulesSnapshot = { pools: s.pools, clocks: s.clocks, channels: s.channels, hiddenFolders: s.hiddenFolders, selectedChannelId: s.selectedChannelId, librarySource: s.librarySource };
     const json = JSON.stringify(rules);
     const libChanged = s.library !== lastLib;
     if (json === lastRules && !libChanged) return;

@@ -9,7 +9,7 @@ export const IMPORTS = path.join(DATA, 'imports');
 /** One file per channel: the blocks behind the playout files, so the app can show what was actually published. */
 export const TIMELINES = path.join(DATA, 'timeline');
 
-export interface RulesSnapshot { pools: Pool[]; clocks: Clock[]; channels: Channel[]; hiddenFolders?: string[]; selectedChannelId?: string; previewDate?: string; librarySource?: string }
+export interface RulesSnapshot { pools: Pool[]; clocks: Clock[]; channels: Channel[]; hiddenFolders?: string[]; selectedChannelId?: string; librarySource?: string }
 export interface LibraryFile { library: Library; source: string }
 export interface Settings {
   library: { roots: { path: string; kind?: MediaKind }[]; ffprobe: string };
