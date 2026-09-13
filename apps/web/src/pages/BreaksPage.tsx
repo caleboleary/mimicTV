@@ -7,8 +7,10 @@ import {
 import { useStore, useLibrary } from '../store/store';
 import { Disclosure } from '../components/Card';
 
-interface Job { running: boolean; folder?: string; total: number; done: number; current?: string; phase?: 'blacks' | 'scenes'; error?: string; finishedAt?: number }
+interface Job { running: boolean; folder?: string; total: number; done: number; current?: string; phase?: 'blacks' | 'scenes'; error?: string; finishedAt?: number; queue?: string[] }
 interface Estimate { files: string[]; minutes: number; skipped: { rel: string; why: string }[] }
+/** The service's own analyze/unqueue response: which one it did, and where a queued show stands. */
+type Ack = { started?: boolean; queued?: boolean; position?: number; removed?: boolean };
 
 async function getJson<T>(url: string): Promise<T | undefined> { try { const r = await fetch(url); return r.ok ? ((await r.json()) as T) : undefined; } catch { return undefined; } }
 async function send(url: string, method: string, body?: unknown): Promise<Response | undefined> { try { return await fetch(url, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }); } catch { return undefined; } }
@@ -48,15 +50,15 @@ export default function BreaksPage() {
   };
   useEffect(() => { load(); getJson<Job>('/api/breaks/status').then(setJob); }, [folder]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!job?.running) return;
+    if (!job?.running && !job?.queue?.length) return;
     const t = setInterval(async () => {
       const j = await getJson<Job>('/api/breaks/status');
       if (!j) return;
       setJob(j);
-      if (!j.running) { clearInterval(t); load(); }
+      if (!j.running && !j.queue?.length) { clearInterval(t); load(); }
     }, 1000);
     return () => clearInterval(t);
-  }, [job?.running]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [job?.running, job?.queue?.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Re-estimate when the knobs that need a re-measure change.
   useEffect(() => { if (!saved) return; send('/api/breaks/plan', 'POST', { folder, settings }).then(async (r) => { if (r?.ok) setEstimate((await r.json()) as Estimate); }); }, [settings.minBlack, settings.pix, settings.edge]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -87,10 +89,25 @@ export default function BreaksPage() {
     setBusy(true); setMsg(undefined);
     const r = await send('/api/breaks/analyze', 'POST', { folder, settings, force });
     setBusy(false);
-    if (r?.ok) setJob({ running: true, folder, total: estimate?.files.length ?? 0, done: 0, phase: 'blacks' });
-    else setMsg(r ? ((await r.json()) as { error?: string }).error : 'Service not reachable');
+    if (!r) { setMsg('Service not reachable'); return; }
+    if (!r.ok) { const e = await r.json().catch(() => undefined) as { error?: string } | undefined; setMsg(e?.error); return; }
+    const b = await r.json().catch(() => undefined) as Ack | undefined; // the service's own analyze response
+    const j = await getJson<Job>('/api/breaks/status');
+    if (b?.queued) {
+      if (j) setJob(j);
+      setMsg(b.position === 1 ? 'queued: it starts when the analysis in progress finishes' : `queued: ${b.position} in line`);
+    } else {
+      // started now: show the bar right away, before the first status poll
+      setJob(j?.running && j.folder === folder ? j : { running: true, folder, total: estimate?.files.length ?? 0, done: 0, phase: 'blacks', queue: j?.queue });
+    }
   };
   const cancel = () => send('/api/breaks/cancel', 'POST');
+  const unqueue = async () => {
+    const r = await send('/api/breaks/unqueue', 'POST', { folder });
+    if (!r?.ok) return;
+    const ack = await r.json().catch(() => undefined) as Ack | undefined; // the service's own unqueue response
+    if (ack?.removed) { const j = await getJson<Job>('/api/breaks/status'); if (j) setJob(j); }
+  };
 
   const save = async (mode: 'plan' | 'timed' | 'none' | 'clear' | 'embedded') => {
     setBusy(true); setMsg(undefined);
@@ -140,6 +157,8 @@ export default function BreaksPage() {
 
   if (!folder || episodes.length === 0) return <div><div className="toolbar"><h1>Breaks</h1></div><div className="panel empty">No episodes under <code>{folder || '(no folder)'}</code>. <Link to="/library?tab=shows">Back to shows</Link></div></div>;
   const running = job?.running && job.folder === folder;
+  const queued = !running && !!job?.queue?.includes(folder);
+  const queuePos = (job?.queue?.indexOf(folder) ?? -1) + 1;
   const otherRunning = job?.running && job.folder !== folder;
   const pct = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
   const dirty = Object.keys(edits).length > 0 || Object.keys(tune).length > 0;
@@ -172,14 +191,19 @@ export default function BreaksPage() {
             <>
               <button className="btn sm" onClick={cancel}>Cancel</button>
               <div className="progress"><i style={{ width: `${pct}%` }} /></div>
-              <span className="muted small">{job!.done}/{job!.total} · {job!.phase === 'scenes' ? 'checking episodes with no fade' : 'watching for fades'}{job!.current ? ` · ${job!.current}` : ''}</span>
+              <span className="muted small">{job!.done}/{job!.total} · {job!.phase === 'scenes' ? 'checking episodes with no fade' : 'watching for fades'}{job!.current ? ` · ${job!.current}` : ''}{job!.queue?.length ? ` · ${job!.queue.length} more queued` : ''}</span>
+            </>
+          ) : queued ? (
+            <>
+              <button className="btn sm" onClick={unqueue}>Cancel</button>
+              <span className="muted small">queued{queuePos === 1 ? ': next up,' : `: ${queuePos} in line,`} it starts when the analysis before it finishes</span>
             </>
           ) : (
             <>
-              <button className="btn primary" disabled={busy || !!otherRunning || (estimate?.files.length ?? 0) === 0} onClick={() => analyze(false)}>{measured > 0 && (estimate?.files.length ?? 0) > 0 ? 'Analyze the rest' : 'Analyze'}</button>
-              {measured > 0 && <button className="btn sm" disabled={busy || !!otherRunning} onClick={() => analyze(true)} title="Measure everything again with the current sensitivity">Re-analyze all</button>}
-              {otherRunning && <span className="muted small">another show is being analyzed; wait for it to finish</span>}
-              {job?.error && <span className="badge warn">{job.error}</span>}
+              <button className="btn primary" disabled={busy || (estimate?.files.length ?? 0) === 0} onClick={() => analyze(false)}>{measured > 0 && (estimate?.files.length ?? 0) > 0 ? 'Analyze the rest' : 'Analyze'}</button>
+              {measured > 0 && <button className="btn sm" disabled={busy} onClick={() => analyze(true)} title="Measure everything again with the current sensitivity">Re-analyze all</button>}
+              {otherRunning && <span className="muted small">another show is being analyzed; this one will queue behind it</span>}
+              {job?.error && job.folder === folder && <span className="badge warn">{job.error}</span>}
               {estimate && estimate.skipped.length > 0 && <span className="muted small">{estimate.skipped.length} file{estimate.skipped.length === 1 ? '' : 's'} left alone (shorts, extras, odd runtimes)</span>}
             </>
           )}

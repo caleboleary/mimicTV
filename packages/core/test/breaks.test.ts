@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planShow, applyBreaks, candidateCuts, DEFAULT_DETECT, type BlackRow, type EpisodeInput, type ShowBreaks, type Library, type MediaItem } from '../src/index';
+import { planShow, applyBreaks, candidateCuts, admitAnalyze, advanceAnalyze, dequeueAnalyze, DEFAULT_DETECT, type BlackRow, type EpisodeInput, type ShowBreaks, type Library, type MediaItem, type QueuedAnalyze, type AnalyzeQueue } from '../src/index';
 
 const MIN = 60;
 const black = (t: number, dur: number, db: number, durSec: number, pre = -25, post = -24): BlackRow => ({ t, dur, frac: t / durSec, db, pre, post });
@@ -100,4 +100,55 @@ describe('applying decisions to the library', () => {
     expect(candidateCuts(b, { atChapters: true, fallback: { mode: 'interval', everyMs: 480000 }, poolId: 'x', equalize: true, midTargetMs: 0, maxItems: 0 } as never)).toEqual([]);
   });
   it('defaults are sane', () => { expect(DEFAULT_DETECT.tol).toBe(75); });
+});
+
+describe('analysis queue (#3)', () => {
+  type Req = QueuedAnalyze & { force: boolean };
+  const req = (folder: string, force = false): Req => ({ folder, force });
+  const idle = (): AnalyzeQueue<Req> => ({ pending: [] });
+
+  it('starts the first request and queues shows that arrive while it runs', () => {
+    const q = idle();
+    expect(admitAnalyze(q, req('/media/TV/A'))).toEqual({ status: 'started' });
+    expect(admitAnalyze(q, req('/media/TV/B'))).toEqual({ status: 'queued', position: 1 });
+    expect(admitAnalyze(q, req('/media/TV/C'))).toEqual({ status: 'queued', position: 2 });
+    expect(q.pending.map((p) => p.folder)).toEqual(['/media/TV/B', '/media/TV/C']);
+  });
+
+  it('a request for the running show is that same run, not a queue entry', () => {
+    const q = idle();
+    admitAnalyze(q, req('/media/TV/A'));
+    expect(admitAnalyze(q, req('/media/TV/A', true))).toEqual({ status: 'running' });
+    expect(q.pending).toHaveLength(0);
+  });
+
+  it('runs the queue in order, then the idle queue starts the next request', () => {
+    const q = idle();
+    admitAnalyze(q, req('/media/TV/A'));
+    admitAnalyze(q, req('/media/TV/B'));
+    admitAnalyze(q, req('/media/TV/C'));
+    expect(advanceAnalyze(q)?.folder).toBe('/media/TV/B'); // A finished or was cancelled: B takes its place
+    expect(admitAnalyze(q, req('/media/TV/B'))).toEqual({ status: 'running' });
+    expect(advanceAnalyze(q)?.folder).toBe('/media/TV/C');
+    expect(advanceAnalyze(q)).toBeUndefined();
+    expect(admitAnalyze(q, req('/media/TV/D'))).toEqual({ status: 'started' });
+  });
+
+  it('re-requesting a queued show updates it in place: same place, newer request', () => {
+    const q = idle();
+    admitAnalyze(q, req('/media/TV/A'));
+    admitAnalyze(q, req('/media/TV/B'));
+    expect(admitAnalyze(q, req('/media/TV/B', true))).toEqual({ status: 'queued', position: 1 });
+    expect(q.pending).toEqual([req('/media/TV/B', true)]);
+  });
+
+  it('a queued show can be pulled out; the running show is left alone', () => {
+    const q = idle();
+    admitAnalyze(q, req('/media/TV/A'));
+    admitAnalyze(q, req('/media/TV/B'));
+    expect(dequeueAnalyze(q, '/media/TV/B')).toBe(true);
+    expect(dequeueAnalyze(q, '/media/TV/B')).toBe(false);
+    expect(dequeueAnalyze(q, '/media/TV/A')).toBe(false);
+    expect(advanceAnalyze(q)).toBeUndefined(); // nothing queued behind A
+  });
 });

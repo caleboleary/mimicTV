@@ -1,14 +1,14 @@
 /**
- * Break points: per-show JSON under data/breaks/, a background measurement job (ffmpeg), and the
- * composition of saved decisions into the library everything else reads. Never writes to media.
- * See docs/breaks.md.
+ * Break points: per-show JSON under data/breaks/, background measurement jobs (ffmpeg, one show at
+ * a time with the rest queued), and the composition of saved decisions into the library everything
+ * else reads. Never writes to media. See docs/breaks.md.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
-  applyBreaks, planShow, slug, DEFAULT_DETECT,
-  type BlackRow, type DetectSettings, type EpisodeInput, type Library, type MediaItem, type SceneWindow, type ShowBreaks,
+  applyBreaks, planShow, slug, DEFAULT_DETECT, admitAnalyze, advanceAnalyze, dequeueAnalyze,
+  type AnalyzeAdmission, type AnalyzeQueue, type BlackRow, type DetectSettings, type EpisodeInput, type Library, type MediaItem, type SceneWindow, type ShowBreaks,
 } from '@mimictv/core';
 import { DATA, readJson, writeJsonAtomic } from './store';
 
@@ -100,7 +100,14 @@ export interface BreaksJob {
 }
 const job: BreaksJob = { running: false, total: 0, done: 0 };
 let cancelled = false;
-export const breaksStatus = () => job;
+
+/** One analysis waiting its turn: everything the job needs when its turn comes. */
+interface AnalyzeRequest { ffmpeg: string; library: Library; folder: string; overrides: Partial<DetectSettings>; force: boolean }
+const aq: AnalyzeQueue<AnalyzeRequest> = { pending: [] };
+
+/** The job in progress plus the show folders queued behind it. */
+export interface BreaksStatus extends BreaksJob { queue: string[] }
+export const breaksStatus = (): BreaksStatus => ({ ...job, queue: aq.pending.map((r) => r.folder) });
 export function cancelAnalyze(): void { cancelled = true; for (const c of children) c.kill('SIGKILL'); }
 
 const sameSettings = (a: { minBlack: number; pix: number; edge: number } | undefined, s: DetectSettings) => !!a && a.minBlack === s.minBlack && a.pix === s.pix && a.edge === s.edge;
@@ -119,8 +126,28 @@ export function analyzePlan(library: Library, folder: string, overrides: Partial
   return { files: files.map((i) => rel(folder, i.path)), minutes, skipped: plan.skipped };
 }
 
+/** Start the run at the head of the queue; when it ends, the next queued show takes its place. */
+function runQueued(): void {
+  const r = aq.running;
+  if (!r) return;
+  void analyzeShow(r.ffmpeg, r.library, r.folder, r.overrides, r.force)
+    .catch((e) => console.error('[breaks] analyze failed', e))
+    .finally(() => { if (advanceAnalyze(aq)) runQueued(); });
+}
+
+/** Queue one show's measurement; starts now if nothing is running or waiting. A second request for
+ * the running show is refused (its run is going on), a re-request for a queued one updates it. */
+export function requestAnalyze(ffmpeg: string, library: Library, folder: string, overrides: Partial<DetectSettings> = {}, force = false): AnalyzeAdmission {
+  const a = admitAnalyze(aq, { ffmpeg, library, folder, overrides, force });
+  if (a.status === 'started') runQueued();
+  return a;
+}
+
+/** Pull a show out of the queue; false if it wasn't waiting. The running show keeps running. */
+export function unqueueAnalyze(folder: string): boolean { return dequeueAnalyze(aq, folder); }
+
+/** One show's measurement run; the queue admits one at a time, so nothing else is running here. */
 export async function analyzeShow(ffmpeg: string, library: Library, folder: string, overrides: Partial<DetectSettings> = {}, force = false, concurrency = 2): Promise<void> {
-  if (job.running) throw new Error('A break analysis is already running');
   const show = loadShow(folder);
   show.settings = { ...show.settings, ...overrides };
   const s: DetectSettings = { ...DEFAULT_DETECT, ...show.settings };

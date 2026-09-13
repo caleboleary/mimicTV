@@ -10,7 +10,7 @@ import { poolItems, rngFor, visibleLibrary, parseProbeJsonl, importProbeLibrary,
 import { store, files, IMPORTS, DATA, ROOT, type Settings, type RulesSnapshot, type LibraryFile } from './store';
 import { runScan, scanStatus } from './scan';
 import { publishNow, lastPublish } from './publish';
-import { composed, loadShow, saveShow, showFolders, analyzePlan, analyzeShow, breaksStatus, cancelAnalyze, seedFromChapterizeCache, importEmbedded } from './breaks';
+import { composed, loadShow, saveShow, showFolders, analyzePlan, requestAnalyze, breaksStatus, cancelAnalyze, unqueueAnalyze, seedFromChapterizeCache, importEmbedded } from './breaks';
 import type { ShowBreaks } from '@mimictv/core';
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -119,12 +119,17 @@ route('POST', '/api/breaks/plan', async (req, res) => {
 route('POST', '/api/breaks/analyze', async (req, res) => {
   const { folder, settings, force } = JSON.parse((await body(req)).toString()) as { folder: string; settings?: Record<string, unknown>; force?: boolean };
   const lib = store.library()?.library; if (!lib) { json(res, { error: 'No library' }, 400); return; }
-  if (breaksStatus().running) { json(res, { error: 'A break analysis is already running' }, 409); return; }
   const ffmpeg = store.settings().library.ffprobe.replace(/ffprobe(\S*)$/, 'ffmpeg$1');
-  json(res, { started: true });
-  analyzeShow(ffmpeg, lib, folder, settings ?? {}, !!force).catch((e) => console.error('[breaks] analyze failed', e));
+  // One show is measured at a time; a request while another runs joins the queue (#3).
+  const a = requestAnalyze(ffmpeg, lib, folder, settings ?? {}, !!force);
+  if (a.status === 'running') { json(res, { error: 'This show is already being analyzed' }, 409); return; }
+  json(res, a.status === 'started' ? { started: true } : { queued: true, position: a.position });
 });
 route('POST', '/api/breaks/cancel', (_r, res) => { cancelAnalyze(); json(res, { ok: true }); });
+route('POST', '/api/breaks/unqueue', async (req, res) => {
+  const { folder } = JSON.parse((await body(req)).toString()) as { folder: string };
+  json(res, { removed: unqueueAnalyze(folder) });
+});
 route('POST', '/api/breaks/import-embedded', async (req, res) => {
   const { folder } = JSON.parse((await body(req)).toString()) as { folder: string };
   const lib = store.library()?.library; if (!lib) { json(res, { error: 'No library' }, 400); return; }

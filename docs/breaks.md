@@ -42,8 +42,10 @@ where ours are present.
 
 Per file: `blackdetect` at 160px wide, blacks closer than 1.5 s merged, blacks within `edge` seconds of either end
 dropped, then `volumedetect` during the black, 2 s before, and after. Same numbers as `chapterize.py`. One job per
-show, queued like a scan, with progress and cancel; results go straight into the breaks file. Budget ~20–40 s per
-22-minute episode on CPU, so the UI warns before starting and the job survives page reloads.
+show, one job at a time: a request that arrives while another show is being analyzed joins the queue behind it
+(FIFO, one entry per folder; re-requesting a queued show updates it in place), so days of analysis can be lined up
+and left running. Progress, cancel, and pulling a queued show out; results go straight into the breaks file.
+Budget ~20–40 s per 22-minute episode on CPU, so the UI warns before starting and the job survives page reloads.
 
 Files are skipped when: under 15 minutes (short: `decision: none`), an outlier for their season folder and
 runtime class, or already measured with the same settings.
@@ -67,7 +69,8 @@ rows, so the UI can re-run it instantly when settings change.
 
 Opinionated and simple: the tool is what you get, with a few knobs.
 
-1. **Analyze** button with a time estimate ("about 12 minutes for 24 episodes"). Progress bar, cancel.
+1. **Analyze** button with a time estimate ("about 12 minutes for 24 episodes"). Progress bar, cancel. While another
+   show is being analyzed the button stays live: pressing it queues this show, and the page shows its place in line.
 2. **Preview**: per season, one line of what the tool found ("breaks at ~7:05 and ~14:30 in 22/24 episodes") and a
    bar per episode: measured blacks as ticks, picks as markers, low-confidence rows first. Click a tick to use it,
    drag a marker, "no breaks" per episode.

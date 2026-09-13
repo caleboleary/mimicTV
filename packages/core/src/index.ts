@@ -6,6 +6,8 @@ export { hiddenBy, visibleLibrary, showFolder } from './library/hidden';
 export { planShow, describeGroup, segmentClusters, pickScene, score, seasonOf, bucket, mmss } from './breaks/decide';
 export type { EpisodeInput, EpisodePlan, GroupPlan, ShowPlan } from './breaks/decide';
 export { applyBreaks, fileBreaks } from './breaks/compose';
+export { admitAnalyze, advanceAnalyze, dequeueAnalyze } from './breaks/queue';
+export type { QueuedAnalyze, AnalyzeQueue, AnalyzeAdmission } from './breaks/queue';
 export { DEFAULT_DETECT, SENSITIVITY } from './breaks/types';
 export type { BlackRow, SceneWindow, DetectSettings, MeasuredFile, BreakMark, BreakDecision, FileBreaks, ShowBreaks } from './breaks/types';
 export { BLACK } from './engine/select';
